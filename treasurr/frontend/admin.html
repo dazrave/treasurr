@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Treasurr - Admin</title>
+<style>
+:root {
+  --bg: #0e1117;
+  --surface: #161b22;
+  --surface-2: #1c2333;
+  --border: #30363d;
+  --gold: #c9a84c;
+  --gold-dim: #8b7335;
+  --gold-bright: #e6c65a;
+  --text: #e6edf3;
+  --text-dim: #8b949e;
+  --green: #3fb950;
+  --red: #f85149;
+  --blue: #58a6ff;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+a { color: var(--gold); text-decoration: none; }
+a:hover { color: var(--gold-bright); }
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+.header-nav { display: flex; gap: 16px; align-items: center; }
+.header-nav a { font-size: 14px; }
+.btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+.btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+.btn-gold { border-color: var(--gold); color: var(--gold); }
+.btn-gold:hover { background: var(--gold); color: var(--bg); }
+
+.main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+/* Stats grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+.stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--gold);
+}
+.stat-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* Section */
+.section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.section-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Table */
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left;
+  padding: 10px 16px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover { background: var(--surface-2); }
+
+.usage-bar {
+  height: 6px;
+  background: var(--surface-2);
+  border-radius: 3px;
+  overflow: hidden;
+  width: 100px;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+.usage-bar-fill {
+  height: 100%;
+  background: var(--gold);
+  border-radius: 3px;
+}
+.usage-bar-fill.warning { background: #d29922; }
+.usage-bar-fill.danger { background: var(--red); }
+
+.mono { font-family: var(--font-mono); font-size: 13px; }
+.dim { color: var(--text-dim); }
+
+.empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: var(--text-dim);
+}
+
+.sync-status {
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 8px 16px;
+}
+.sync-status.success { color: var(--green); }
+
+/* Edit modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+}
+.modal h3 { margin-bottom: 16px; color: var(--gold); }
+.modal label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.modal input {
+  width: 100%;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-brand">&#9875; TREASURR &mdash; Admin</div>
+  <div class="header-nav">
+    <a href="/">&#8592; Dashboard</a>
+    <button class="btn btn-gold" onclick="triggerSync()">&#128260; Sync Now</button>
+  </div>
+</div>
+
+<div class="main">
+  <div id="sync-msg" class="sync-status"></div>
+
+  <!-- Stats -->
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card"><div class="stat-label">Total Storage</div><div class="stat-value" id="stat-total">--</div></div>
+    <div class="stat-card"><div class="stat-label">Owned (Quota)</div><div class="stat-value" id="stat-owned">--</div></div>
+    <div class="stat-card"><div class="stat-label">Shared Plunder</div><div class="stat-value" id="stat-promoted">--</div></div>
+    <div class="stat-card"><div class="stat-label">Unowned</div><div class="stat-value" id="stat-unowned">--</div></div>
+    <div class="stat-card"><div class="stat-label">Crew Members</div><div class="stat-value" id="stat-users">--</div></div>
+    <div class="stat-card"><div class="stat-label">Content Items</div><div class="stat-value" id="stat-content">--</div></div>
+  </div>
+
+  <!-- Crew Table -->
+  <div class="section">
+    <div class="section-header">
+      <span>Crew Manifest</span>
+    </div>
+    <div id="crew-table">
+      <div class="loading">Loading crew...</div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Quota Modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <h3>Edit Crew Member</h3>
+    <div id="edit-username" style="margin-bottom:16px;font-weight:600;"></div>
+    <label>Quota (GB)</label>
+    <input type="number" id="edit-quota-gb" step="1" min="0">
+    <label>Bonus (GB)</label>
+    <input type="number" id="edit-bonus-gb" step="1" min="0">
+    <div class="modal-actions">
+      <button class="btn" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-gold" onclick="saveQuota()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '';
+let editUserId = null;
+
+async function checkAdmin() {
+  try {
+    const resp = await fetch(API + '/api/auth/me');
+    if (!resp.ok) { window.location = '/'; return; }
+    const user = await resp.json();
+    if (!user.is_admin) { window.location = '/'; return; }
+    loadAdmin();
+  } catch { window.location = '/'; }
+}
+
+async function loadAdmin() {
+  await Promise.all([loadStats(), loadCrew()]);
+}
+
+async function loadStats() {
+  try {
+    const resp = await fetch(API + '/api/admin/stats');
+    const d = await resp.json();
+    document.getElementById('stat-total').textContent = d.total_display;
+    document.getElementById('stat-owned').textContent = d.owned_display;
+    document.getElementById('stat-promoted').textContent = d.promoted_display;
+    document.getElementById('stat-unowned').textContent = d.unowned_display;
+    document.getElementById('stat-users').textContent = d.user_count;
+    document.getElementById('stat-content').textContent = d.content_count;
+  } catch { /* silent */ }
+}
+
+async function loadCrew() {
+  const container = document.getElementById('crew-table');
+  try {
+    const resp = await fetch(API + '/api/admin/crew');
+    const d = await resp.json();
+    if (d.crew.length === 0) {
+      container.innerHTML = '<div class="empty">No crew members yet. Run a sync to populate.</div>';
+      return;
+    }
+    let html = '<table><thead><tr><th>Pirate</th><th>Quota</th><th>Used</th><th>Usage</th><th>Items</th><th></th></tr></thead><tbody>';
+    for (const c of d.crew) {
+      const pct = c.usage_percent;
+      let barClass = '';
+      if (pct >= 90) barClass = 'danger';
+      else if (pct >= 75) barClass = 'warning';
+      const quotaGb = (c.quota_bytes / 1073741824).toFixed(0);
+      const bonusGb = (c.bonus_bytes / 1073741824).toFixed(0);
+      const quotaLabel = bonusGb > 0 ? quotaGb + '+' + bonusGb + ' GB' : quotaGb + ' GB';
+      html += '<tr>' +
+        '<td><strong>' + esc(c.username) + '</strong>' + (c.is_admin ? ' <span class="dim">(admin)</span>' : '') + '</td>' +
+        '<td class="mono">' + quotaLabel + '</td>' +
+        '<td class="mono">' + c.used_display + '</td>' +
+        '<td><div class="usage-bar"><div class="usage-bar-fill ' + barClass + '" style="width:' + Math.min(pct, 100) + '%"></div></div><span class="mono dim">' + pct + '%</span></td>' +
+        '<td class="mono">' + c.owned_count + '</td>' +
+        '<td><button class="btn" onclick="editUser(' + c.id + ',\'' + esc(c.username) + '\',' + c.quota_bytes + ',' + c.bonus_bytes + ')">Edit</button></td>' +
+        '</tr>';
+    }
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  } catch {
+    container.innerHTML = '<div class="empty">Failed to load crew</div>';
+  }
+}
+
+function editUser(id, username, quotaBytes, bonusBytes) {
+  editUserId = id;
+  document.getElementById('edit-username').textContent = username;
+  document.getElementById('edit-quota-gb').value = Math.round(quotaBytes / 1073741824);
+  document.getElementById('edit-bonus-gb').value = Math.round(bonusBytes / 1073741824);
+  document.getElementById('edit-modal').classList.add('active');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('active');
+  editUserId = null;
+}
+
+async function saveQuota() {
+  if (!editUserId) return;
+  const quotaGb = parseInt(document.getElementById('edit-quota-gb').value) || 0;
+  const bonusGb = parseInt(document.getElementById('edit-bonus-gb').value) || 0;
+  try {
+    await fetch(API + '/api/admin/crew/' + editUserId, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        quota_bytes: quotaGb * 1073741824,
+        bonus_bytes: bonusGb * 1073741824,
+      }),
+    });
+    closeEditModal();
+    loadAdmin();
+  } catch (e) {
+    alert('Save failed: ' + e.message);
+  }
+}
+
+async function triggerSync() {
+  const msg = document.getElementById('sync-msg');
+  msg.textContent = 'Syncing...';
+  msg.className = 'sync-status';
+  try {
+    const resp = await fetch(API + '/api/admin/sync', {method: 'POST'});
+    const d = await resp.json();
+    msg.textContent = 'Sync complete!';
+    msg.className = 'sync-status success';
+    loadAdmin();
+    setTimeout(() => { msg.textContent = ''; }, 5000);
+  } catch (e) {
+    msg.textContent = 'Sync failed: ' + e.message;
+  }
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+checkAdmin();
+</script>
+</body>
+</html>

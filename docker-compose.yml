@@ -1,0 +1,11 @@
+services:
+  treasurr:
+    build: .
+    image: ghcr.io/dazrave/treasurr:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
+    env_file: .env
+    restart: unless-stopped

@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Treasurr</title>
+<style>
+:root {
+  --bg: #0e1117;
+  --surface: #161b22;
+  --surface-2: #1c2333;
+  --border: #30363d;
+  --gold: #c9a84c;
+  --gold-dim: #8b7335;
+  --gold-bright: #e6c65a;
+  --text: #e6edf3;
+  --text-dim: #8b949e;
+  --green: #3fb950;
+  --red: #f85149;
+  --blue: #58a6ff;
+  --promoted: #3fb950;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+a { color: var(--gold); text-decoration: none; }
+a:hover { color: var(--gold-bright); }
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+.header-user .username { color: var(--text); font-weight: 600; }
+.btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+.btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+.btn-danger { border-color: var(--red); color: var(--red); }
+.btn-danger:hover { background: var(--red); color: #fff; }
+.btn-gold { border-color: var(--gold); color: var(--gold); }
+.btn-gold:hover { background: var(--gold); color: var(--bg); }
+.btn-login {
+  padding: 12px 28px;
+  font-size: 16px;
+  font-weight: 600;
+  border-color: var(--gold);
+  color: var(--gold);
+  background: transparent;
+}
+.btn-login:hover { background: var(--gold); color: var(--bg); }
+
+/* Login screen */
+.login-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  gap: 24px;
+}
+.login-screen h1 {
+  font-size: 48px;
+  color: var(--gold);
+  letter-spacing: 3px;
+}
+.login-screen p { color: var(--text-dim); font-size: 16px; }
+
+/* Main content */
+.main { max-width: 900px; margin: 0 auto; padding: 24px; }
+
+/* Quota bar */
+.quota-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+.quota-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+.quota-title {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--gold);
+  font-weight: 700;
+}
+.quota-numbers {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text-dim);
+}
+.quota-numbers strong { color: var(--text); }
+.quota-bar-bg {
+  height: 24px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.quota-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+  border-radius: 12px;
+  transition: width 0.6s ease;
+  min-width: 2px;
+}
+.quota-bar-fill.warning { background: linear-gradient(90deg, #d29922, #e3b341); }
+.quota-bar-fill.danger { background: linear-gradient(90deg, #da3633, #f85149); }
+.quota-percent {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+
+/* Section */
+.section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.section-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Content list */
+.content-item {
+  display: flex;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  gap: 14px;
+  transition: background 0.1s;
+}
+.content-item:last-child { border-bottom: none; }
+.content-item:hover { background: var(--surface-2); }
+.content-icon { font-size: 18px; flex-shrink: 0; }
+.content-info { flex: 1; min-width: 0; }
+.content-title {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.content-meta {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.content-meta .promoted-badge {
+  color: var(--promoted);
+  font-weight: 600;
+}
+.content-size {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  min-width: 60px;
+  text-align: right;
+}
+.content-viewers {
+  font-size: 13px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  min-width: 40px;
+  text-align: center;
+}
+.scuttle-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  border: 1px solid var(--red);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--red);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.scuttle-btn:hover { background: var(--red); color: #fff; }
+
+/* Activity */
+.activity-item {
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.activity-item:last-child { border-bottom: none; }
+.activity-item .highlight { color: var(--text); font-weight: 600; }
+.activity-item .freed { color: var(--green); }
+
+/* Tip */
+.tip {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* Empty state */
+.empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+/* Admin link */
+.admin-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.admin-link:hover { color: var(--gold); }
+
+/* Loading */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  color: var(--text-dim);
+}
+
+/* Confirm dialog */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+}
+.modal h3 { margin-bottom: 12px; color: var(--gold); }
+.modal p { margin-bottom: 20px; color: var(--text-dim); font-size: 14px; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+@media (max-width: 600px) {
+  .main { padding: 12px; }
+  .content-item { flex-wrap: wrap; gap: 8px; }
+  .content-viewers { display: none; }
+  .header { padding: 12px 16px; }
+  .login-screen h1 { font-size: 32px; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Login Screen -->
+  <div id="login-screen" class="login-screen" style="display:none;">
+    <h1>TREASURR</h1>
+    <p>Your treasure. Your crew. Your plunder.</p>
+    <button class="btn btn-login" onclick="startPlexLogin()">Sign in with Plex</button>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" style="display:none;">
+    <div class="header">
+      <div class="header-brand">&#9875; TREASURR</div>
+      <div class="header-user">
+        <span class="username" id="header-username"></span>
+        <button class="btn" onclick="logout()">Logout</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <!-- Quota Card -->
+      <div class="quota-card">
+        <div class="quota-header">
+          <div class="quota-title">Your Treasure Chest</div>
+          <div class="quota-numbers">
+            <strong id="quota-used">0 GB</strong> / <span id="quota-total">500 GB</span>
+          </div>
+        </div>
+        <div class="quota-bar-bg">
+          <div class="quota-bar-fill" id="quota-bar" style="width: 0%"></div>
+        </div>
+        <div class="quota-percent" id="quota-percent">0%</div>
+      </div>
+
+      <!-- Cargo (owned content) -->
+      <div class="section">
+        <div class="section-header">
+          <span>Your Cargo</span>
+          <span>Size &middot; Crew</span>
+        </div>
+        <div id="cargo-list">
+          <div class="loading">Loading your cargo...</div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="section">
+        <div class="section-header">Recent Activity</div>
+        <div id="activity-list">
+          <div class="loading">Loading activity...</div>
+        </div>
+      </div>
+
+      <div class="tip">
+        Request what the crew wants and your treasure chest stays light! &#9875;
+      </div>
+
+      <div id="admin-link-container" style="text-align:center;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Scuttle Confirmation Modal -->
+<div class="modal-overlay" id="scuttle-modal">
+  <div class="modal">
+    <h3>&#127988; Scuttle Content?</h3>
+    <p id="scuttle-msg">Are you sure you want to delete this?</p>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeScuttleModal()">Cancel</button>
+      <button class="btn btn-danger" id="scuttle-confirm" onclick="confirmScuttle()">Scuttle It</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '';
+let currentUser = null;
+let pendingScuttleId = null;
+
+// --- Auth ---
+async function checkAuth() {
+  try {
+    const resp = await fetch(API + '/api/auth/me');
+    if (resp.ok) {
+      currentUser = await resp.json();
+      showDashboard();
+    } else {
+      showLogin();
+    }
+  } catch {
+    showLogin();
+  }
+}
+
+function showLogin() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+}
+
+function showDashboard() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('header-username').textContent = currentUser.username;
+  if (currentUser.is_admin) {
+    document.getElementById('admin-link-container').innerHTML =
+      '<a href="/admin" class="admin-link">&#9881; Admin Panel</a>';
+  }
+  loadDashboard();
+}
+
+async function startPlexLogin() {
+  try {
+    const resp = await fetch(API + '/api/auth/plex');
+    const data = await resp.json();
+    const authWindow = window.open(data.auth_url, 'PlexAuth', 'width=800,height=600');
+    pollForAuth(data.pin_id, authWindow);
+  } catch (e) {
+    alert('Failed to start Plex login: ' + e.message);
+  }
+}
+
+async function pollForAuth(pinId, authWindow) {
+  for (let i = 0; i < 60; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    try {
+      const resp = await fetch(API + '/api/auth/plex/callback', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({pin_id: pinId}),
+      });
+      const data = await resp.json();
+      if (data.authenticated) {
+        if (authWindow && !authWindow.closed) authWindow.close();
+        currentUser = data.user;
+        showDashboard();
+        return;
+      }
+    } catch { /* keep polling */ }
+    if (authWindow && authWindow.closed) break;
+  }
+}
+
+async function logout() {
+  await fetch(API + '/api/auth/logout', {method: 'POST'});
+  currentUser = null;
+  showLogin();
+}
+
+// --- Dashboard Data ---
+async function loadDashboard() {
+  await Promise.all([loadQuota(), loadCargo(), loadActivity()]);
+}
+
+async function loadQuota() {
+  try {
+    const resp = await fetch(API + '/api/treasure');
+    const data = await resp.json();
+    document.getElementById('quota-used').textContent = data.used_display;
+    document.getElementById('quota-total').textContent = data.quota_display;
+    document.getElementById('quota-percent').textContent = data.usage_percent + '%';
+    const bar = document.getElementById('quota-bar');
+    bar.style.width = Math.min(data.usage_percent, 100) + '%';
+    bar.className = 'quota-bar-fill';
+    if (data.usage_percent >= 90) bar.classList.add('danger');
+    else if (data.usage_percent >= 75) bar.classList.add('warning');
+  } catch { /* silent */ }
+}
+
+async function loadCargo() {
+  const container = document.getElementById('cargo-list');
+  try {
+    const resp = await fetch(API + '/api/treasure/chest');
+    const data = await resp.json();
+    if (data.items.length === 0) {
+      container.innerHTML = '<div class="empty">Your treasure chest is empty. Request some content!</div>';
+      return;
+    }
+    container.innerHTML = data.items.map(item => {
+      const icon = item.media_type === 'movie' ? '&#127916;' : '&#128250;';
+      const viewers = item.unique_viewers;
+      let meta = '';
+      if (item.status === 'promoted') {
+        meta = '<span class="promoted-badge">Promoted to Shared Plunder! &#9875;</span>';
+      } else if (viewers <= 1) {
+        const days = daysSince(item.owned_at);
+        meta = 'Only you &middot; ' + days + ' days';
+      } else {
+        meta = viewers + ' crew watched';
+      }
+      const scuttleBtn = item.can_scuttle
+        ? '<button class="scuttle-btn" onclick="scuttle(' + item.content_id + ', \'' + escapeHtml(item.title) + '\', \'' + item.size_display + '\')">&#127988; Scuttle</button>'
+        : '';
+      return '<div class="content-item">' +
+        '<span class="content-icon">' + icon + '</span>' +
+        '<div class="content-info"><div class="content-title">' + escapeHtml(item.title) + '</div>' +
+        '<div class="content-meta">' + meta + '</div></div>' +
+        '<div class="content-size">' + item.size_display + '</div>' +
+        '<div class="content-viewers">' + viewers + ' &#128065;</div>' +
+        scuttleBtn + '</div>';
+    }).join('');
+  } catch {
+    container.innerHTML = '<div class="empty">Failed to load cargo</div>';
+  }
+}
+
+async function loadActivity() {
+  const container = document.getElementById('activity-list');
+  try {
+    const resp = await fetch(API + '/api/activity');
+    const data = await resp.json();
+    if (data.events.length === 0) {
+      container.innerHTML = '<div class="empty">No recent activity</div>';
+      return;
+    }
+    container.innerHTML = data.events.map(ev => {
+      if (ev.type === 'promotion') {
+        return '<div class="activity-item">&#9875; <span class="highlight">"' +
+          escapeHtml(ev.title) + '"</span> promoted &mdash; <span class="freed">' +
+          ev.size_display + ' freed!</span></div>';
+      }
+      return '<div class="activity-item">&#128465; <span class="highlight">"' +
+        escapeHtml(ev.title) + '"</span> scuttled &mdash; <span class="freed">' +
+        ev.size_display + ' freed</span></div>';
+    }).join('');
+  } catch {
+    container.innerHTML = '<div class="empty">Failed to load activity</div>';
+  }
+}
+
+// --- Scuttle ---
+function scuttle(contentId, title, sizeDisplay) {
+  pendingScuttleId = contentId;
+  document.getElementById('scuttle-msg').innerHTML =
+    'Delete <strong>' + escapeHtml(title) + '</strong> (' + sizeDisplay + ')? ' +
+    'This will permanently remove the files from the server.';
+  document.getElementById('scuttle-modal').classList.add('active');
+}
+
+function closeScuttleModal() {
+  document.getElementById('scuttle-modal').classList.remove('active');
+  pendingScuttleId = null;
+}
+
+async function confirmScuttle() {
+  if (!pendingScuttleId) return;
+  const id = pendingScuttleId;
+  closeScuttleModal();
+  try {
+    const resp = await fetch(API + '/api/treasure/' + id + '/scuttle', {method: 'POST'});
+    const data = await resp.json();
+    if (resp.ok) {
+      loadDashboard();
+    } else {
+      alert(data.detail || 'Scuttle failed');
+    }
+  } catch (e) {
+    alert('Scuttle failed: ' + e.message);
+  }
+}
+
+// --- Helpers ---
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function daysSince(isoDate) {
+  if (!isoDate) return 0;
+  const d = new Date(isoDate);
+  const now = new Date();
+  return Math.floor((now - d) / 86400000);
+}
+
+// Boot
+checkAuth();
+</script>
+</body>
+</html>
