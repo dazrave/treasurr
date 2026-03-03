@@ -229,6 +229,13 @@ class Database:
             ).fetchone()
             return _row_to_user(row) if row else None
 
+    def get_user_by_username(self, username: str) -> User | None:
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM users WHERE plex_username = ?", (username,)
+            ).fetchone()
+            return _row_to_user(row) if row else None
+
     def get_all_users(self) -> list[User]:
         with self.connection() as conn:
             rows = conn.execute("SELECT * FROM users ORDER BY plex_username").fetchall()

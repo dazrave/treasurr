@@ -23,14 +23,17 @@ async def sync_requests(db: Database, config: Config) -> int:
 
         media_type = "show" if req.media_type == "tv" else "movie"
 
-        # Upsert user from Overseerr data
-        plex_user_id = str(req.requested_by_user_id)
-        user = db.upsert_user(
-            plex_user_id=plex_user_id,
-            plex_username=req.requested_by_username,
-            email=req.requested_by_email,
-            quota_bytes=config.quotas.default_bytes,
-        )
+        # Match existing user by username first (Tautulli creates users with real
+        # Plex IDs, Overseerr only has its own internal IDs). Fall back to creating
+        # a new user if no match exists yet.
+        user = db.get_user_by_username(req.requested_by_username)
+        if user is None:
+            user = db.upsert_user(
+                plex_user_id=str(req.requested_by_user_id),
+                plex_username=req.requested_by_username,
+                email=req.requested_by_email,
+                quota_bytes=config.quotas.default_bytes,
+            )
 
         # Upsert content
         content = db.upsert_content(
