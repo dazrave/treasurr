@@ -542,7 +542,7 @@ function showDashboard() {
     document.getElementById('admin-link-container').innerHTML =
       '<a href="/admin" class="admin-link">&#9881; Admin Panel</a>';
   }
-  if (!currentUser.onboarded) {
+  if (!currentUser.onboarded && !currentUser.is_admin) {
     showOnboarding();
   } else {
     document.getElementById('dashboard').style.display = 'block';

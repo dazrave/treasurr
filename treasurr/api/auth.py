@@ -206,6 +206,7 @@ async def get_me(request: Request) -> dict:
         "username": user.plex_username,
         "email": user.email,
         "is_admin": user.is_admin,
+        "onboarded": user.onboarded,
     }
 
 
