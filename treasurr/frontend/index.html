@@ -1511,7 +1511,7 @@ async function buryContent(contentId) {
 
 function daysRemaining(plankStartedAt, plankDays) {
   if (!plankStartedAt) return 0;
-  const started = new Date(plankStartedAt);
+  const started = new Date(plankStartedAt.replace(' ', 'T') + (plankStartedAt.includes('Z') || plankStartedAt.includes('+') ? '' : 'Z'));
   const expires = new Date(started.getTime() + plankDays * 86400000);
   const now = new Date();
   return Math.max(0, Math.ceil((expires - now) / 86400000));
@@ -1626,9 +1626,13 @@ function posterFallback(title, mediaType) {
   return '<div class="poster-fallback"><span class="icon">' + icon + '</span><span class="title">' + escapeHtml(title) + '</span></div>';
 }
 
+function parseDate(s) {
+  return new Date(s.replace(' ', 'T') + (s.includes('Z') || s.includes('+') ? '' : 'Z'));
+}
+
 function daysSince(isoDate) {
   if (!isoDate) return 0;
-  const d = new Date(isoDate);
+  const d = parseDate(isoDate);
   const now = new Date();
   return Math.floor((now - d) / 86400000);
 }

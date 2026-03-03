@@ -745,7 +745,7 @@ function getSortValue(row, col) {
 
 function relativeTime(isoStr) {
   if (!isoStr) return 'never';
-  var d = new Date(isoStr);
+  var d = new Date(isoStr.replace(' ', 'T') + (isoStr.includes('Z') || isoStr.includes('+') ? '' : 'Z'));
   var now = new Date();
   var diffMs = now - d;
   var diffDays = Math.floor(diffMs / 86400000);
