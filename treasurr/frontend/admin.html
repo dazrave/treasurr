@@ -439,6 +439,19 @@ input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
           <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">Minimum time content must exist before auto-delete can remove it</div>
         </div>
 
+        <!-- Stale Content Auto-Plank -->
+        <div>
+          <span class="setting-label">Stale Content Auto-Plank</span>
+          <select class="setting-select" id="set-stale-content-days">
+            <option value="0">Disabled</option>
+            <option value="365">1 year</option>
+            <option value="730">2 years</option>
+            <option value="1095">3 years</option>
+            <option value="1825">5 years</option>
+          </select>
+          <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">If nobody has watched something for this long, it automatically walks the plank. Applies to all content regardless of owner.</div>
+        </div>
+
         <!-- Shared Space Cap dropdown -->
         <div>
           <span class="setting-label">Shared Space Cap</span>
@@ -939,6 +952,7 @@ async function loadSettings() {
     document.getElementById('set-plank-days').value = String(s.plank_days !== undefined ? s.plank_days : 14);
     document.getElementById('set-min-retention').value = String(s.min_retention_days || 0);
     document.getElementById('set-plunder-cap').value = String(s.shared_plunder_max_bytes || 0);
+    document.getElementById('set-stale-content-days').value = String(s.stale_content_days || 0);
 
     var msgEl = document.getElementById('set-server-message');
     msgEl.value = s.server_message || '';
@@ -1006,6 +1020,7 @@ async function saveSettings() {
         plank_days: parseInt(document.getElementById('set-plank-days').value) || 0,
         plank_rescue_action: getRadioValue('plank_rescue_action'),
         server_message: document.getElementById('set-server-message').value,
+        stale_content_days: parseInt(document.getElementById('set-stale-content-days').value) || 0,
       }),
     });
     if (resp.ok) {

@@ -1001,6 +1001,30 @@ class Database:
             ).fetchall()
             return [_row_to_content(r) for r in rows]
 
+    # --- Stale Content (Global Auto-Plank) ---
+
+    def get_stale_content(self, stale_days: int) -> list[Content]:
+        """Get active owned content where last watch by anyone (or added_at if never watched) exceeds stale_days.
+
+        Excludes buried content.
+        """
+        with self.connection() as conn:
+            rows = conn.execute(
+                """SELECT c.* FROM content c
+                   JOIN content_ownership co ON co.content_id = c.id
+                   LEFT JOIN (
+                       SELECT content_id, MAX(watched_at) as last_watched
+                       FROM watch_events WHERE completed = 1
+                       GROUP BY content_id
+                   ) lw ON lw.content_id = c.id
+                   WHERE co.status = 'owned'
+                     AND c.status = 'active'
+                     AND julianday('now') - julianday(COALESCE(lw.last_watched, c.added_at)) > ?
+                   ORDER BY COALESCE(lw.last_watched, c.added_at) ASC""",
+                (stale_days,),
+            ).fetchall()
+            return [_row_to_content(r) for r in rows]
+
     # --- Bury (Protected Content) ---
 
     def bury_content(self, content_id: int) -> None:

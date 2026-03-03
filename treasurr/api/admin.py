@@ -155,6 +155,7 @@ async def get_settings(request: Request) -> dict:
         "plank_days": int(db_settings.get("plank_days", str(config.quotas.plank_days))),
         "plank_rescue_action": db_settings.get("plank_rescue_action", config.quotas.plank_rescue_action),
         "server_message": db_settings.get("server_message", DEFAULT_SERVER_MESSAGE),
+        "stale_content_days": int(db_settings.get("stale_content_days", "0")),
     }
 
 
@@ -213,6 +214,12 @@ async def update_settings(request: Request) -> dict:
         if len(msg) > 1000:
             raise HTTPException(status_code=400, detail="Server message must be under 1000 characters")
         db.set_setting("server_message", msg)
+
+    if "stale_content_days" in body:
+        val = int(body["stale_content_days"])
+        if val < 0:
+            raise HTTPException(status_code=400, detail="stale_content_days cannot be negative")
+        db.set_setting("stale_content_days", str(val))
 
     # Return updated settings
     return await get_settings(request)

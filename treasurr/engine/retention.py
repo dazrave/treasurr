@@ -22,6 +22,17 @@ def _get_min_retention_days(db: Database, config: Config) -> int:
     return config.quotas.min_retention_days
 
 
+def _get_stale_content_days(db: Database, config: Config) -> int:
+    """Read stale_content_days from settings, falling back to 0 (disabled)."""
+    raw = db.get_setting("stale_content_days", "")
+    if raw:
+        try:
+            return int(raw)
+        except ValueError:
+            pass
+    return 0
+
+
 async def run_retention_checks(db: Database, config: Config) -> int:
     """Auto-scuttle content for users with retention policies. Returns scuttle count."""
     min_retention = _get_min_retention_days(db, config)
@@ -58,6 +69,29 @@ async def run_retention_checks(db: Database, config: Config) -> int:
                     content.title,
                     user.plex_username,
                     result.message,
+                )
+
+    # Global stale content auto-plank
+    stale_days = _get_stale_content_days(db, config)
+    if stale_days > 0:
+        stale_items = db.get_stale_content(stale_days)
+        for content in stale_items:
+            ownership = db.get_ownership(content.id)
+            if ownership is None:
+                continue
+            result = await scuttle_content(
+                db=db,
+                config=config,
+                content_id=content.id,
+                user_id=ownership.owner_user_id,
+            )
+            if result.success:
+                scuttled += 1
+                logger.info(
+                    "Stale auto-planked '%s' (unwatched for %d+ days, freed %d bytes)",
+                    content.title,
+                    stale_days,
+                    result.freed_bytes,
                 )
 
     if scuttled > 0:
