@@ -23,6 +23,16 @@ async def sync_requests(db: Database, config: Config) -> int:
 
         media_type = "show" if req.media_type == "tv" else "movie"
 
+        # Resolve title - Overseerr's /request endpoint often omits it
+        title = req.title
+        if not title or title == "Unknown":
+            try:
+                title = await client.get_media_title(req.tmdb_id, req.media_type)
+            except Exception:
+                pass
+            if not title:
+                title = "Unknown"
+
         # Match existing user by username first (Tautulli creates users with real
         # Plex IDs, Overseerr only has its own internal IDs). Fall back to creating
         # a new user if no match exists yet.
@@ -35,9 +45,9 @@ async def sync_requests(db: Database, config: Config) -> int:
                 quota_bytes=config.quotas.default_bytes,
             )
 
-        # Upsert content
+        # Upsert content (will update title if it changed from Unknown)
         content = db.upsert_content(
-            title=req.title,
+            title=title,
             media_type=media_type,
             tmdb_id=req.tmdb_id,
             overseerr_request_id=req.request_id,
@@ -48,7 +58,7 @@ async def sync_requests(db: Database, config: Config) -> int:
         if existing is None:
             db.set_ownership(content.id, user.id)
             created += 1
-            logger.info("Assigned %s '%s' to %s", media_type, req.title, user.plex_username)
+            logger.info("Assigned %s '%s' to %s", media_type, title, user.plex_username)
 
     logger.info("Request sync complete: %d new ownership records", created)
     return created

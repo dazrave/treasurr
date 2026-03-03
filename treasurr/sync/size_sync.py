@@ -25,9 +25,18 @@ async def sync_disk_space(db: Database, config: Config) -> dict:
     if not disks:
         return {}
 
-    # Sum all disks for total server capacity
-    total_bytes = sum(d["total_bytes"] for d in disks)
-    free_bytes = sum(d["free_bytes"] for d in disks)
+    # Deduplicate disks - Radarr reports the same physical disk multiple times
+    # under different mount paths. Group by total_bytes (same-sized disks are
+    # almost certainly the same physical device) and keep the largest free value.
+    seen_totals: dict[int, dict] = {}
+    for d in disks:
+        t = d["total_bytes"]
+        if t not in seen_totals or d["free_bytes"] > seen_totals[t]["free_bytes"]:
+            seen_totals[t] = d
+    unique_disks = list(seen_totals.values())
+
+    total_bytes = sum(d["total_bytes"] for d in unique_disks)
+    free_bytes = sum(d["free_bytes"] for d in unique_disks)
 
     disk_info = {
         "total_bytes": total_bytes,

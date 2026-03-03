@@ -173,6 +173,21 @@ class OverseerrClient:
             skip += take
         return all_requests
 
+    async def get_media_title(self, tmdb_id: int, media_type: str) -> str:
+        """Look up a title from Overseerr's TMDB-backed media info."""
+        try:
+            path = f"/{'movie' if media_type == 'movie' else 'tv'}/{tmdb_id}"
+            data = await self._get(path)
+            return (
+                data.get("title")
+                or data.get("name")
+                or data.get("originalTitle")
+                or data.get("originalName")
+                or ""
+            )
+        except Exception:
+            return ""
+
     async def get_user(self, user_id: int) -> dict:
         return await self._get(f"/user/{user_id}")
 
