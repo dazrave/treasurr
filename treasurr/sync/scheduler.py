@@ -11,7 +11,7 @@ from treasurr.engine.plank import run_plank_checks
 from treasurr.engine.promotion import run_promotions
 from treasurr.engine.retention import run_retention_checks
 from treasurr.sync.request_sync import sync_requests
-from treasurr.sync.size_sync import sync_arr_ids, sync_sizes
+from treasurr.sync.size_sync import sync_arr_ids, sync_disk_space, sync_sizes
 from treasurr.sync.watch_sync import sync_users_from_tautulli, sync_watch_history
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,12 @@ async def run_full_sync(db: Database, config: Config) -> dict:
     except Exception as e:
         logger.error("Size sync failed: %s", e)
         results["sizes_error"] = str(e)
+
+    try:
+        results["disk_space"] = await sync_disk_space(db, config)
+    except Exception as e:
+        logger.error("Disk space sync failed: %s", e)
+        results["disk_space_error"] = str(e)
 
     try:
         results["watches"] = await sync_watch_history(db, config)

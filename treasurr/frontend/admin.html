@@ -18,6 +18,10 @@
   --green: #3fb950;
   --red: #f85149;
   --blue: #58a6ff;
+  --purple: #bc8cff;
+  --orange: #d29922;
+  --cyan: #39d2c0;
+  --pink: #f778ba;
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
 }
@@ -27,193 +31,204 @@ a { color: var(--gold); text-decoration: none; }
 a:hover { color: var(--gold-bright); }
 
 .header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 24px; border-bottom: 1px solid var(--border); background: var(--surface);
 }
 .header-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--gold);
-  letter-spacing: 1px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 20px; font-weight: 700; color: var(--gold); letter-spacing: 1px;
 }
 .header-nav { display: flex; gap: 16px; align-items: center; }
 .header-nav a { font-size: 14px; }
 .btn {
-  padding: 6px 14px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text);
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.15s;
+  padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text); cursor: pointer;
+  font-size: 13px; transition: all 0.15s;
 }
 .btn:hover { border-color: var(--gold-dim); color: var(--gold); }
 .btn-gold { border-color: var(--gold); color: var(--gold); }
 .btn-gold:hover { background: var(--gold); color: var(--bg); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
 
-.main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+.main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+/* Storage Bar */
+.storage-bar-wrapper {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px; margin-bottom: 24px;
+}
+.storage-bar-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 2px;
+  color: var(--text-dim); margin-bottom: 8px; display: flex; justify-content: space-between;
+}
+.storage-bar {
+  height: 32px; background: var(--surface-2); border-radius: 6px;
+  overflow: hidden; display: flex; position: relative;
+}
+.storage-segment {
+  height: 100%; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; color: var(--bg); overflow: hidden;
+  white-space: nowrap; position: relative; min-width: 2px; transition: width 0.3s;
+}
+.storage-segment:hover { opacity: 0.85; }
+.storage-tooltip {
+  display: none; position: absolute; bottom: calc(100% + 8px); left: 50%;
+  transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px 12px; font-size: 12px; color: var(--text);
+  white-space: nowrap; z-index: 10; pointer-events: none;
+}
+.storage-segment:hover .storage-tooltip { display: block; }
+.storage-legend {
+  display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 12px;
+}
+.storage-legend-item { display: flex; align-items: center; gap: 6px; }
+.storage-legend-dot { width: 10px; height: 10px; border-radius: 2px; }
 
 /* Stats grid */
 .stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px; margin-bottom: 24px;
 }
 .stat-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 20px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px;
 }
 .stat-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  color: var(--text-dim);
-  margin-bottom: 6px;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 2px;
+  color: var(--text-dim); margin-bottom: 6px;
 }
 .stat-value {
-  font-size: 24px;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  color: var(--gold);
+  font-size: 24px; font-weight: 700; font-family: var(--font-mono); color: var(--gold);
 }
-.stat-sub {
-  font-size: 12px;
-  color: var(--text-dim);
-  margin-top: 2px;
-}
+.stat-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
 
 /* Section */
 .section {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  margin-bottom: 24px;
-  overflow: hidden;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; margin-bottom: 24px; overflow: hidden;
 }
 .section-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  color: var(--text-dim);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+  font-size: 13px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim);
+  display: flex; justify-content: space-between; align-items: center;
 }
 
 /* Table */
 table { width: 100%; border-collapse: collapse; }
 th {
-  text-align: left;
-  padding: 10px 16px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-dim);
-  border-bottom: 1px solid var(--border);
+  text-align: left; padding: 10px 16px; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim);
+  border-bottom: 1px solid var(--border); cursor: pointer; user-select: none;
+  white-space: nowrap;
 }
-td {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  font-size: 14px;
-}
+th:hover { color: var(--gold); }
+th .sort-arrow { font-size: 10px; margin-left: 4px; opacity: 0.5; }
+th.sorted .sort-arrow { opacity: 1; color: var(--gold); }
+td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 14px; }
 tr:last-child td { border-bottom: none; }
 tr:hover { background: var(--surface-2); }
 
 .usage-bar {
-  height: 6px;
-  background: var(--surface-2);
-  border-radius: 3px;
-  overflow: hidden;
-  width: 100px;
-  display: inline-block;
-  vertical-align: middle;
-  margin-right: 8px;
+  height: 6px; background: var(--surface-2); border-radius: 3px;
+  overflow: hidden; width: 100px; display: inline-block; vertical-align: middle; margin-right: 8px;
 }
-.usage-bar-fill {
-  height: 100%;
-  background: var(--gold);
-  border-radius: 3px;
-}
+.usage-bar-fill { height: 100%; background: var(--gold); border-radius: 3px; }
 .usage-bar-fill.warning { background: #d29922; }
 .usage-bar-fill.danger { background: var(--red); }
 
 .mono { font-family: var(--font-mono); font-size: 13px; }
 .dim { color: var(--text-dim); }
-
-.empty {
-  padding: 40px;
-  text-align: center;
-  color: var(--text-dim);
-  font-size: 14px;
-}
-.loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
-  color: var(--text-dim);
-}
-
-.sync-status {
-  font-size: 12px;
-  color: var(--text-dim);
-  padding: 8px 16px;
-}
+.empty { padding: 40px; text-align: center; color: var(--text-dim); font-size: 14px; }
+.loading { display: flex; align-items: center; justify-content: center; padding: 40px; color: var(--text-dim); }
+.sync-status { font-size: 12px; color: var(--text-dim); padding: 8px 16px; }
 .sync-status.success { color: var(--green); }
+
+/* Radio group */
+.radio-group { display: flex; flex-direction: column; gap: 8px; }
+.radio-option {
+  display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+  transition: all 0.15s;
+}
+.radio-option:hover { border-color: var(--gold-dim); }
+.radio-option.selected { border-color: var(--gold); background: rgba(201, 168, 76, 0.08); }
+.radio-option input[type="radio"] { margin-top: 2px; accent-color: var(--gold); }
+.radio-option-label { font-size: 14px; font-weight: 600; color: var(--text); }
+.radio-option-desc { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+/* Dropdown styled */
+.setting-select {
+  width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text); font-size: 14px;
+}
+.setting-label {
+  display: block; margin-bottom: 6px; font-size: 12px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 1px;
+}
+
+/* Bulk action bar */
+.bulk-bar {
+  display: none; padding: 12px 20px; background: var(--surface-2);
+  border-bottom: 1px solid var(--border); align-items: center; gap: 12px;
+}
+.bulk-bar.active { display: flex; }
+.bulk-bar span { font-size: 13px; color: var(--gold); font-weight: 600; }
+.bulk-bar select { padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); font-size: 13px; }
+
+/* Checkbox */
+input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
 
 /* Edit modal */
 .modal-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.7);
-  z-index: 100;
-  align-items: center;
-  justify-content: center;
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  z-index: 100; align-items: center; justify-content: center;
 }
 .modal-overlay.active { display: flex; }
 .modal {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 24px;
-  max-width: 400px;
-  width: 90%;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 24px; max-width: 500px; width: 90%;
 }
 .modal h3 { margin-bottom: 16px; color: var(--gold); }
 .modal label {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 12px;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  display: block; margin-bottom: 4px; font-size: 12px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 1px;
 }
-.modal input {
-  width: 100%;
-  padding: 8px 12px;
-  margin-bottom: 12px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 14px;
+.modal input[type="number"], .modal input[type="range"] {
+  width: 100%; padding: 8px 12px; margin-bottom: 4px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--text); font-family: var(--font-mono); font-size: 14px;
 }
-.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+.modal input[type="range"] { padding: 0; margin-top: 8px; margin-bottom: 8px; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
+
+/* Tier buttons */
+.tier-buttons { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.tier-btn {
+  padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text); cursor: pointer;
+  font-size: 12px; transition: all 0.15s;
+}
+.tier-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+.tier-btn.active { border-color: var(--gold); background: var(--gold); color: var(--bg); font-weight: 600; }
+
+/* Slider value display */
+.slider-value {
+  font-family: var(--font-mono); font-size: 16px; font-weight: 700;
+  color: var(--gold); text-align: right; margin-bottom: 4px;
+}
+
+/* Confirm dialog */
+.confirm-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  z-index: 200; align-items: center; justify-content: center;
+}
+.confirm-overlay.active { display: flex; }
+.confirm-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 24px; max-width: 420px; width: 90%; text-align: center;
+}
+.confirm-box p { margin-bottom: 16px; font-size: 14px; }
+.confirm-box .modal-actions { justify-content: center; }
 </style>
 </head>
 <body>
@@ -229,9 +244,19 @@ tr:hover { background: var(--surface-2); }
 <div class="main">
   <div id="sync-msg" class="sync-status"></div>
 
+  <!-- Server Storage Bar -->
+  <div class="storage-bar-wrapper" id="storage-bar-wrapper" style="display:none;">
+    <div class="storage-bar-label">
+      <span>Server Storage</span>
+      <span id="storage-total-label" class="mono"></span>
+    </div>
+    <div class="storage-bar" id="storage-bar"></div>
+    <div class="storage-legend" id="storage-legend"></div>
+  </div>
+
   <!-- Stats -->
   <div class="stats-grid" id="stats-grid">
-    <div class="stat-card"><div class="stat-label">Total Storage</div><div class="stat-value" id="stat-total">--</div></div>
+    <div class="stat-card"><div class="stat-label">Total Content</div><div class="stat-value" id="stat-total">--</div></div>
     <div class="stat-card"><div class="stat-label">Owned (Quota)</div><div class="stat-value" id="stat-owned">--</div></div>
     <div class="stat-card"><div class="stat-label">Shared Plunder</div><div class="stat-value" id="stat-promoted">--</div></div>
     <div class="stat-card"><div class="stat-label">Unowned</div><div class="stat-value" id="stat-unowned">--</div></div>
@@ -244,67 +269,143 @@ tr:hover { background: var(--surface-2); }
   <div class="section" id="settings-section">
     <div class="section-header">Ship Settings</div>
     <div style="padding: 20px;">
-      <!-- Plunder Cap Warning Banner (shown when >90% full) -->
       <div id="cap-warning" style="display:none; background:#d29922; color:#000; padding:12px 16px; border-radius:8px; margin-bottom:16px; font-weight:600;">
         &#9888; Shared space is almost full! No new content will be promoted until space is freed.
       </div>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
         <!-- Promotion Mode -->
         <div>
-          <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;">How sharing works</label>
-          <select id="set-promotion-mode" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:14px;">
-            <option value="full_plunder">Full Plunder — shared content uses no one's space</option>
-            <option value="split_the_loot">Split the Loot — shared content split between all viewers</option>
-          </select>
-        </div>
-
-        <!-- Shared Space Cap -->
-        <div>
-          <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;">Shared space limit (GB, 0 = no limit)</label>
-          <input type="number" id="set-plunder-cap" step="1" min="0" value="0" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-family:var(--font-mono); font-size:14px;">
-        </div>
-
-        <!-- Min Retention -->
-        <div>
-          <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;">Minimum days before auto-delete</label>
-          <input type="number" id="set-min-retention" step="1" min="0" value="0" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-family:var(--font-mono); font-size:14px;">
-          <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">Gives the crew time to watch before content can be auto-removed</div>
-        </div>
-
-        <!-- Display Mode -->
-        <div>
-          <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;">How sizes are shown to users</label>
-          <select id="set-display-mode" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:14px;">
-            <option value="exact">Exact sizes (23.4 GB)</option>
-            <option value="round_up">Rounded up (24 GB)</option>
-            <option value="percentage">Percentage of space (12% of your space)</option>
-          </select>
+          <span class="setting-label">Promotion Mode</span>
+          <div class="radio-group" id="rg-promotion-mode">
+            <label class="radio-option" data-value="full_plunder">
+              <input type="radio" name="promotion_mode" value="full_plunder">
+              <div>
+                <div class="radio-option-label">Full Plunder</div>
+                <div class="radio-option-desc">Shared content is free for everyone. The original owner's quota is fully freed.</div>
+              </div>
+            </label>
+            <label class="radio-option" data-value="split_the_loot">
+              <input type="radio" name="promotion_mode" value="split_the_loot">
+              <div>
+                <div class="radio-option-label">Split the Loot</div>
+                <div class="radio-option-desc">Shared content cost is split equally between all viewers.</div>
+              </div>
+            </label>
+          </div>
         </div>
 
         <!-- Plank Mode -->
         <div>
-          <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;">Walk the Plank mode</label>
-          <select id="set-plank-mode" onchange="toggleRescueAction()" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:14px;">
-            <option value="anchored">Anchored - stays on owner's quota, only owner can rescue</option>
-            <option value="adrift">Adrift - off owner's quota, anyone can rescue by watching</option>
-          </select>
+          <span class="setting-label">Walk the Plank Mode</span>
+          <div class="radio-group" id="rg-plank-mode">
+            <label class="radio-option" data-value="adrift">
+              <input type="radio" name="plank_mode" value="adrift" onchange="toggleRescueAction()">
+              <div>
+                <div class="radio-option-label">Adrift</div>
+                <div class="radio-option-desc">Deleted content floats free. Any crew member can rescue it by watching.</div>
+              </div>
+            </label>
+            <label class="radio-option" data-value="anchored">
+              <input type="radio" name="plank_mode" value="anchored" onchange="toggleRescueAction()">
+              <div>
+                <div class="radio-option-label">Anchored</div>
+                <div class="radio-option-desc">Deleted content stays on the owner's quota. Only they can undo the delete.</div>
+              </div>
+            </label>
+          </div>
         </div>
 
-        <!-- Plank Days -->
-        <div>
-          <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;">Plank grace period (days, 0 = instant delete)</label>
-          <input type="number" id="set-plank-days" step="1" min="0" value="14" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-family:var(--font-mono); font-size:14px;">
-          <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">How long content stays on the plank before it's permanently deleted</div>
-        </div>
-
-        <!-- Rescue Action (only visible when adrift) -->
+        <!-- Rescue Action (visible only when Adrift) -->
         <div id="rescue-action-row">
-          <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;">What happens when someone rescues content</label>
-          <select id="set-rescue-action" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:14px;">
-            <option value="promote">Promote to shared plunder</option>
-            <option value="adopt">Adopt - moves to rescuer's quota</option>
+          <span class="setting-label">Rescue Action</span>
+          <div class="radio-group" id="rg-rescue-action">
+            <label class="radio-option" data-value="promote">
+              <input type="radio" name="plank_rescue_action" value="promote">
+              <div>
+                <div class="radio-option-label">Promote to Shared</div>
+                <div class="radio-option-desc">Rescued content becomes shared plunder, free for all.</div>
+              </div>
+            </label>
+            <label class="radio-option" data-value="adopt">
+              <input type="radio" name="plank_rescue_action" value="adopt">
+              <div>
+                <div class="radio-option-label">Adopt</div>
+                <div class="radio-option-desc">Rescued content moves to the rescuer's personal quota.</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Display Mode -->
+        <div>
+          <span class="setting-label">Display Mode</span>
+          <div class="radio-group" id="rg-display-mode">
+            <label class="radio-option" data-value="exact">
+              <input type="radio" name="display_mode" value="exact">
+              <div>
+                <div class="radio-option-label">Exact</div>
+                <div class="radio-option-desc">Show precise sizes like 23.4 GB</div>
+              </div>
+            </label>
+            <label class="radio-option" data-value="round_up">
+              <input type="radio" name="display_mode" value="round_up">
+              <div>
+                <div class="radio-option-label">Rounded</div>
+                <div class="radio-option-desc">Round up to nearest GB, like 24 GB</div>
+              </div>
+            </label>
+            <label class="radio-option" data-value="percentage">
+              <input type="radio" name="display_mode" value="percentage">
+              <div>
+                <div class="radio-option-label">Percentage</div>
+                <div class="radio-option-desc">Show as percentage of quota, like 12%</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Plank Grace Period dropdown -->
+        <div>
+          <span class="setting-label">Plank Grace Period</span>
+          <select class="setting-select" id="set-plank-days">
+            <option value="0">0 days (instant delete)</option>
+            <option value="3">3 days</option>
+            <option value="7">7 days</option>
+            <option value="14">14 days</option>
+            <option value="21">21 days</option>
+            <option value="30">30 days</option>
           </select>
+          <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">How long content stays on the plank before permanent deletion</div>
+        </div>
+
+        <!-- Minimum Retention Days dropdown -->
+        <div>
+          <span class="setting-label">Minimum Retention Days</span>
+          <select class="setting-select" id="set-min-retention">
+            <option value="0">0 days (no minimum)</option>
+            <option value="3">3 days</option>
+            <option value="7">7 days</option>
+            <option value="14">14 days</option>
+            <option value="30">30 days</option>
+            <option value="60">60 days</option>
+            <option value="90">90 days</option>
+          </select>
+          <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">Minimum time content must exist before auto-delete can remove it</div>
+        </div>
+
+        <!-- Shared Space Cap dropdown -->
+        <div>
+          <span class="setting-label">Shared Space Cap</span>
+          <select class="setting-select" id="set-plunder-cap">
+            <option value="0">Unlimited</option>
+            <option value="536870912000">500 GB</option>
+            <option value="1099511627776">1 TB</option>
+            <option value="2199023255552">2 TB</option>
+            <option value="5497558138880">5 TB</option>
+            <option value="10995116277760">10 TB</option>
+          </select>
+          <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">Maximum total size for shared plunder pool</div>
         </div>
       </div>
 
@@ -320,6 +421,13 @@ tr:hover { background: var(--surface-2); }
     <div class="section-header">
       <span>Crew Manifest</span>
     </div>
+    <!-- Bulk action bar -->
+    <div class="bulk-bar" id="bulk-bar">
+      <span id="bulk-count">0 selected</span>
+      <span>Set tier:</span>
+      <select id="bulk-tier-select"></select>
+      <button class="btn btn-gold btn-sm" onclick="bulkApply()">Apply</button>
+    </div>
     <div id="crew-table">
       <div class="loading">Loading crew...</div>
     </div>
@@ -331,10 +439,22 @@ tr:hover { background: var(--surface-2); }
   <div class="modal">
     <h3>Edit Crew Member</h3>
     <div id="edit-username" style="margin-bottom:16px;font-weight:600;"></div>
-    <label>Quota (GB)</label>
-    <input type="number" id="edit-quota-gb" step="1" min="0">
-    <label>Bonus (GB)</label>
-    <input type="number" id="edit-bonus-gb" step="1" min="0">
+
+    <label>Tier</label>
+    <div class="tier-buttons" id="edit-tier-buttons"></div>
+
+    <label>Quota</label>
+    <div class="slider-value" id="edit-quota-display">0 GB</div>
+    <input type="range" id="edit-quota-slider" min="0" max="30000" step="10"
+           oninput="onQuotaSlider(this.value)">
+    <input type="number" id="edit-quota-gb" step="10" min="0" style="display:none;">
+
+    <label style="margin-top:12px;">Bonus Storage</label>
+    <div class="slider-value" id="edit-bonus-display">0 GB</div>
+    <input type="range" id="edit-bonus-slider" min="0" max="500" step="10"
+           oninput="onBonusSlider(this.value)">
+    <div style="font-size:11px; color:var(--text-dim); margin-top:2px;">(Extra storage on top of their tier)</div>
+
     <div class="modal-actions">
       <button class="btn" onclick="closeEditModal()">Cancel</button>
       <button class="btn btn-gold" onclick="saveQuota()">Save</button>
@@ -342,9 +462,29 @@ tr:hover { background: var(--surface-2); }
   </div>
 </div>
 
+<!-- Confirm dialog -->
+<div class="confirm-overlay" id="confirm-dialog">
+  <div class="confirm-box">
+    <p id="confirm-text"></p>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeConfirm()">Cancel</button>
+      <button class="btn btn-gold" onclick="confirmAction()">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const API = '';
+const GB = 1073741824;
+const USER_COLORS = ['#58a6ff', '#bc8cff', '#39d2c0', '#f778ba', '#d29922', '#3fb950', '#f85149', '#e6c65a'];
+
 let editUserId = null;
+let crewData = [];
+let tiersData = [];
+let sortCol = 'username';
+let sortAsc = true;
+let selectedUsers = new Set();
+let pendingConfirmFn = null;
 
 async function checkAdmin() {
   try {
@@ -357,7 +497,28 @@ async function checkAdmin() {
 }
 
 async function loadAdmin() {
-  await Promise.all([loadStats(), loadCrew(), loadSettings()]);
+  await Promise.all([loadStats(), loadCrew(), loadSettings(), loadTiers()]);
+}
+
+async function loadTiers() {
+  try {
+    const resp = await fetch(API + '/api/admin/tiers');
+    if (!resp.ok) return;
+    const d = await resp.json();
+    tiersData = d.tiers || [];
+    populateBulkTierSelect();
+  } catch { /* silent */ }
+}
+
+function populateBulkTierSelect() {
+  const sel = document.getElementById('bulk-tier-select');
+  sel.innerHTML = '';
+  for (const t of tiersData) {
+    const opt = document.createElement('option');
+    opt.value = t.bytes;
+    opt.textContent = t.name + ' (' + t.display + ')';
+    sel.appendChild(opt);
+  }
 }
 
 async function loadStats() {
@@ -372,13 +533,90 @@ async function loadStats() {
     document.getElementById('stat-plank-count').textContent = (d.plank_count || 0) + ' items';
     document.getElementById('stat-users').textContent = d.user_count;
     document.getElementById('stat-content').textContent = d.content_count;
-    if (d.plunder_cap_bytes !== undefined) {
-      checkCapWarning({
-        plunder_cap_bytes: d.plunder_cap_bytes,
-        plunder_used_bytes: d.plunder_used_bytes,
-      });
+
+    if (d.plunder_cap_warning) {
+      document.getElementById('cap-warning').style.display = 'block';
     }
+
+    renderStorageBar(d);
   } catch { /* silent */ }
+}
+
+function renderStorageBar(stats) {
+  const wrapper = document.getElementById('storage-bar-wrapper');
+  const bar = document.getElementById('storage-bar');
+  const legend = document.getElementById('storage-legend');
+  const totalLabel = document.getElementById('storage-total-label');
+
+  const diskTotal = stats.disk_total_bytes || 0;
+  if (diskTotal <= 0) { wrapper.style.display = 'none'; return; }
+
+  wrapper.style.display = 'block';
+  totalLabel.textContent = stats.disk_total_display + ' total';
+
+  const userStorage = stats.user_storage || [];
+  const promotedBytes = stats.promoted_bytes || 0;
+  const unownedBytes = stats.unowned_bytes || 0;
+  const freeBytes = stats.disk_free_bytes || 0;
+  const usedByUsers = userStorage.reduce(function(s, u) { return s + u.used_bytes; }, 0);
+  const otherUsed = Math.max(0, diskTotal - freeBytes - usedByUsers - promotedBytes - unownedBytes);
+
+  bar.innerHTML = '';
+  legend.innerHTML = '';
+
+  var segments = [];
+
+  // User segments
+  userStorage.sort(function(a, b) { return b.used_bytes - a.used_bytes; });
+  for (var i = 0; i < userStorage.length; i++) {
+    var u = userStorage[i];
+    if (u.used_bytes <= 0) continue;
+    var color = USER_COLORS[i % USER_COLORS.length];
+    segments.push({ label: u.username, bytes: u.used_bytes, display: u.used_display, color: color });
+  }
+
+  // Shared plunder
+  if (promotedBytes > 0) {
+    segments.push({ label: 'Shared Plunder', bytes: promotedBytes, display: stats.promoted_display, color: '#8b949e' });
+  }
+
+  // Unowned/other
+  var miscBytes = unownedBytes + otherUsed;
+  if (miscBytes > 0) {
+    segments.push({ label: 'Other', bytes: miscBytes, display: formatBytes(miscBytes), color: '#484f58' });
+  }
+
+  // Free space
+  if (freeBytes > 0) {
+    segments.push({ label: 'Free', bytes: freeBytes, display: stats.disk_free_display, color: '#21262d' });
+  }
+
+  for (var j = 0; j < segments.length; j++) {
+    var seg = segments[j];
+    var pct = (seg.bytes / diskTotal) * 100;
+    var div = document.createElement('div');
+    div.className = 'storage-segment';
+    div.style.width = pct + '%';
+    div.style.backgroundColor = seg.color;
+    if (pct > 6) { div.textContent = seg.label + ' (' + seg.display + ')'; }
+    var tip = document.createElement('div');
+    tip.className = 'storage-tooltip';
+    tip.textContent = seg.label + ': ' + seg.display + ' (' + pct.toFixed(1) + '%)';
+    div.appendChild(tip);
+    bar.appendChild(div);
+
+    var li = document.createElement('div');
+    li.className = 'storage-legend-item';
+    li.innerHTML = '<div class="storage-legend-dot" style="background:' + seg.color + '"></div><span>' + esc(seg.label) + ' - ' + seg.display + '</span>';
+    legend.appendChild(li);
+  }
+}
+
+function formatBytes(b) {
+  if (b <= 0) return '0 B';
+  if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
+  if (b < 1099511627776) return (b / 1073741824).toFixed(1) + ' GB';
+  return (b / 1099511627776).toFixed(2) + ' TB';
 }
 
 async function loadCrew() {
@@ -386,41 +624,233 @@ async function loadCrew() {
   try {
     const resp = await fetch(API + '/api/admin/crew');
     const d = await resp.json();
-    if (d.crew.length === 0) {
-      container.innerHTML = '<div class="empty">No crew members yet. Run a sync to populate.</div>';
-      return;
-    }
-    let html = '<table><thead><tr><th>Pirate</th><th>Quota</th><th>Used</th><th>Usage</th><th>Items</th><th></th></tr></thead><tbody>';
-    for (const c of d.crew) {
-      const pct = c.usage_percent;
-      let barClass = '';
-      if (pct >= 90) barClass = 'danger';
-      else if (pct >= 75) barClass = 'warning';
-      const quotaGb = (c.quota_bytes / 1073741824).toFixed(0);
-      const bonusGb = (c.bonus_bytes / 1073741824).toFixed(0);
-      const quotaLabel = bonusGb > 0 ? quotaGb + '+' + bonusGb + ' GB' : quotaGb + ' GB';
-      html += '<tr>' +
-        '<td><strong>' + esc(c.username) + '</strong>' + (c.is_admin ? ' <span class="dim">(admin)</span>' : '') + '</td>' +
-        '<td class="mono">' + quotaLabel + '</td>' +
-        '<td class="mono">' + c.used_display + '</td>' +
-        '<td><div class="usage-bar"><div class="usage-bar-fill ' + barClass + '" style="width:' + Math.min(pct, 100) + '%"></div></div><span class="mono dim">' + pct + '%</span></td>' +
-        '<td class="mono">' + c.owned_count + '</td>' +
-        '<td><button class="btn" onclick="editUser(' + c.id + ',\'' + esc(c.username) + '\',' + c.quota_bytes + ',' + c.bonus_bytes + ')">Edit</button></td>' +
-        '</tr>';
-    }
-    html += '</tbody></table>';
-    container.innerHTML = html;
+    crewData = d.crew || [];
+    selectedUsers.clear();
+    updateBulkBar();
+    renderCrewTable();
   } catch {
     container.innerHTML = '<div class="empty">Failed to load crew</div>';
   }
 }
 
+function renderCrewTable() {
+  const container = document.getElementById('crew-table');
+  if (crewData.length === 0) {
+    container.innerHTML = '<div class="empty">No crew members yet. Run a sync to populate.</div>';
+    return;
+  }
+
+  var sorted = crewData.slice().sort(function(a, b) {
+    var va = getSortValue(a, sortCol);
+    var vb = getSortValue(b, sortCol);
+    if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb || '').toLowerCase(); }
+    if (va < vb) return sortAsc ? -1 : 1;
+    if (va > vb) return sortAsc ? 1 : -1;
+    return 0;
+  });
+
+  var allChecked = selectedUsers.size === crewData.length && crewData.length > 0;
+  var html = '<table><thead><tr>';
+  html += '<th style="width:40px;cursor:default;"><input type="checkbox" ' + (allChecked ? 'checked' : '') + ' onchange="toggleSelectAll(this.checked)"></th>';
+  html += sortHeader('username', 'Pirate');
+  html += sortHeader('quota_bytes', 'Quota');
+  html += sortHeader('used_bytes', 'Used');
+  html += sortHeader('usage_percent', 'Usage');
+  html += sortHeader('owned_count', 'Items');
+  html += sortHeader('request_count', 'Requests');
+  html += sortHeader('last_request_at', 'Last Request');
+  html += '<th style="cursor:default;"></th>';
+  html += '</tr></thead><tbody>';
+
+  for (var i = 0; i < sorted.length; i++) {
+    var c = sorted[i];
+    var pct = c.usage_percent;
+    var barClass = '';
+    if (pct >= 90) barClass = 'danger';
+    else if (pct >= 75) barClass = 'warning';
+    var quotaGb = (c.quota_bytes / GB).toFixed(0);
+    var bonusGb = (c.bonus_bytes / GB).toFixed(0);
+    var quotaLabel = bonusGb > 0 ? quotaGb + '+' + bonusGb + ' GB' : quotaGb + ' GB';
+    var checked = selectedUsers.has(c.id) ? 'checked' : '';
+    var lastReq = c.last_request_at ? relativeTime(c.last_request_at) : '<span class="dim">never</span>';
+
+    html += '<tr>' +
+      '<td><input type="checkbox" ' + checked + ' onchange="toggleUser(' + c.id + ', this.checked)"></td>' +
+      '<td><strong>' + esc(c.username) + '</strong>' + (c.is_admin ? ' <span class="dim">(admin)</span>' : '') + '</td>' +
+      '<td class="mono">' + quotaLabel + '</td>' +
+      '<td class="mono">' + c.used_display + '</td>' +
+      '<td><div class="usage-bar"><div class="usage-bar-fill ' + barClass + '" style="width:' + Math.min(pct, 100) + '%"></div></div><span class="mono dim">' + pct + '%</span></td>' +
+      '<td class="mono">' + c.owned_count + '</td>' +
+      '<td class="mono">' + (c.request_count || 0) + '</td>' +
+      '<td class="dim" style="font-size:13px;">' + lastReq + '</td>' +
+      '<td><button class="btn btn-sm" onclick="editUser(' + c.id + ',\'' + esc(c.username) + '\',' + c.quota_bytes + ',' + c.bonus_bytes + ')">Edit</button></td>' +
+      '</tr>';
+  }
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function sortHeader(col, label) {
+  var cls = sortCol === col ? ' class="sorted"' : '';
+  var arrow = sortCol === col ? (sortAsc ? '&#9650;' : '&#9660;') : '&#9650;';
+  return '<th' + cls + ' onclick="setSort(\'' + col + '\')"><span>' + label + '</span><span class="sort-arrow">' + arrow + '</span></th>';
+}
+
+function setSort(col) {
+  if (sortCol === col) { sortAsc = !sortAsc; }
+  else { sortCol = col; sortAsc = true; }
+  renderCrewTable();
+}
+
+function getSortValue(row, col) {
+  if (col === 'last_request_at') return row[col] || '';
+  return row[col];
+}
+
+function relativeTime(isoStr) {
+  if (!isoStr) return 'never';
+  var d = new Date(isoStr);
+  var now = new Date();
+  var diffMs = now - d;
+  var diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays < 1) return 'today';
+  if (diffDays === 1) return 'yesterday';
+  if (diffDays < 7) return diffDays + ' days ago';
+  if (diffDays < 30) { var w = Math.floor(diffDays / 7); return w + (w === 1 ? ' week' : ' weeks') + ' ago'; }
+  if (diffDays < 365) { var m = Math.floor(diffDays / 30); return m + (m === 1 ? ' month' : ' months') + ' ago'; }
+  var y = Math.floor(diffDays / 365);
+  return y + (y === 1 ? ' year' : ' years') + ' ago';
+}
+
+// --- Selection / Bulk ---
+
+function toggleUser(id, checked) {
+  if (checked) { selectedUsers.add(id); } else { selectedUsers.delete(id); }
+  updateBulkBar();
+}
+
+function toggleSelectAll(checked) {
+  selectedUsers.clear();
+  if (checked) { crewData.forEach(function(c) { selectedUsers.add(c.id); }); }
+  renderCrewTable();
+  updateBulkBar();
+}
+
+function updateBulkBar() {
+  var bar = document.getElementById('bulk-bar');
+  var count = document.getElementById('bulk-count');
+  if (selectedUsers.size > 0) {
+    bar.classList.add('active');
+    count.textContent = selectedUsers.size + ' selected';
+  } else {
+    bar.classList.remove('active');
+  }
+}
+
+function bulkApply() {
+  var tierBytes = parseInt(document.getElementById('bulk-tier-select').value);
+  var tierOpt = document.getElementById('bulk-tier-select');
+  var tierName = tierOpt.options[tierOpt.selectedIndex].textContent;
+  var count = selectedUsers.size;
+  showConfirm(
+    'Set ' + count + ' crew member' + (count > 1 ? 's' : '') + ' to ' + tierName + '?',
+    function() { doBulkApply(tierBytes); }
+  );
+}
+
+async function doBulkApply(tierBytes) {
+  try {
+    await fetch(API + '/api/admin/crew/bulk', {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ user_ids: Array.from(selectedUsers), quota_bytes: tierBytes }),
+    });
+    selectedUsers.clear();
+    updateBulkBar();
+    loadAdmin();
+  } catch (e) {
+    alert('Bulk update failed: ' + e.message);
+  }
+}
+
+function showConfirm(text, fn) {
+  document.getElementById('confirm-text').textContent = text;
+  document.getElementById('confirm-dialog').classList.add('active');
+  pendingConfirmFn = fn;
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-dialog').classList.remove('active');
+  pendingConfirmFn = null;
+}
+
+function confirmAction() {
+  if (pendingConfirmFn) { pendingConfirmFn(); }
+  closeConfirm();
+}
+
+// --- Edit Modal ---
+
 function editUser(id, username, quotaBytes, bonusBytes) {
   editUserId = id;
   document.getElementById('edit-username').textContent = username;
-  document.getElementById('edit-quota-gb').value = Math.round(quotaBytes / 1073741824);
-  document.getElementById('edit-bonus-gb').value = Math.round(bonusBytes / 1073741824);
+
+  var quotaGb = Math.round(quotaBytes / GB);
+  var bonusGb = Math.round(bonusBytes / GB);
+
+  // Set slider max based on disk size or 30TB
+  var maxGb = 30000;
+  document.getElementById('edit-quota-slider').max = maxGb;
+
+  document.getElementById('edit-quota-slider').value = quotaGb;
+  document.getElementById('edit-quota-display').textContent = quotaGb + ' GB';
+  document.getElementById('edit-bonus-slider').value = bonusGb;
+  document.getElementById('edit-bonus-display').textContent = bonusGb + ' GB';
+
+  // Build tier buttons
+  var btnContainer = document.getElementById('edit-tier-buttons');
+  btnContainer.innerHTML = '';
+  for (var i = 0; i < tiersData.length; i++) {
+    var t = tiersData[i];
+    var btn = document.createElement('button');
+    btn.className = 'tier-btn';
+    btn.textContent = t.name + ' (' + t.display + ')';
+    btn.setAttribute('data-bytes', t.bytes);
+    var tierGb = Math.round(t.bytes / GB);
+    if (tierGb === quotaGb) btn.classList.add('active');
+    btn.onclick = (function(bytes) {
+      return function() { setTier(bytes); };
+    })(t.bytes);
+    btnContainer.appendChild(btn);
+  }
+
   document.getElementById('edit-modal').classList.add('active');
+}
+
+function setTier(bytes) {
+  var gb = Math.round(bytes / GB);
+  document.getElementById('edit-quota-slider').value = gb;
+  document.getElementById('edit-quota-display').textContent = gb + ' GB';
+  // Highlight active tier button
+  var btns = document.querySelectorAll('#edit-tier-buttons .tier-btn');
+  btns.forEach(function(b) {
+    b.classList.toggle('active', parseInt(b.getAttribute('data-bytes')) === bytes);
+  });
+}
+
+function onQuotaSlider(val) {
+  val = parseInt(val);
+  document.getElementById('edit-quota-display').textContent = val + ' GB';
+  // Check if matches a tier
+  var btns = document.querySelectorAll('#edit-tier-buttons .tier-btn');
+  btns.forEach(function(b) {
+    var tierGb = Math.round(parseInt(b.getAttribute('data-bytes')) / GB);
+    b.classList.toggle('active', tierGb === val);
+  });
+}
+
+function onBonusSlider(val) {
+  document.getElementById('edit-bonus-display').textContent = parseInt(val) + ' GB';
 }
 
 function closeEditModal() {
@@ -430,15 +860,15 @@ function closeEditModal() {
 
 async function saveQuota() {
   if (!editUserId) return;
-  const quotaGb = parseInt(document.getElementById('edit-quota-gb').value) || 0;
-  const bonusGb = parseInt(document.getElementById('edit-bonus-gb').value) || 0;
+  var quotaGb = parseInt(document.getElementById('edit-quota-slider').value) || 0;
+  var bonusGb = parseInt(document.getElementById('edit-bonus-slider').value) || 0;
   try {
     await fetch(API + '/api/admin/crew/' + editUserId, {
       method: 'PUT',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        quota_bytes: quotaGb * 1073741824,
-        bonus_bytes: bonusGb * 1073741824,
+        quota_bytes: quotaGb * GB,
+        bonus_bytes: bonusGb * GB,
       }),
     });
     closeEditModal();
@@ -448,64 +878,72 @@ async function saveQuota() {
   }
 }
 
-async function triggerSync() {
-  const msg = document.getElementById('sync-msg');
-  msg.textContent = 'Syncing...';
-  msg.className = 'sync-status';
-  try {
-    const resp = await fetch(API + '/api/admin/sync', {method: 'POST'});
-    const d = await resp.json();
-    msg.textContent = 'Sync complete!';
-    msg.className = 'sync-status success';
-    loadAdmin();
-    setTimeout(() => { msg.textContent = ''; }, 5000);
-  } catch (e) {
-    msg.textContent = 'Sync failed: ' + e.message;
-  }
-}
+// --- Settings ---
 
 async function loadSettings() {
   try {
     const resp = await fetch(API + '/api/admin/settings');
     if (!resp.ok) return;
     const s = await resp.json();
-    document.getElementById('set-promotion-mode').value = s.promotion_mode || 'full_plunder';
-    document.getElementById('set-plunder-cap').value = Math.round((s.shared_plunder_max_bytes || 0) / 1073741824);
-    document.getElementById('set-min-retention').value = s.min_retention_days || 0;
-    document.getElementById('set-display-mode').value = s.display_mode || 'exact';
-    document.getElementById('set-plank-mode').value = s.plank_mode || 'adrift';
-    document.getElementById('set-plank-days').value = s.plank_days !== undefined ? s.plank_days : 14;
-    document.getElementById('set-rescue-action').value = s.plank_rescue_action || 'promote';
+
+    setRadioValue('promotion_mode', s.promotion_mode || 'full_plunder');
+    setRadioValue('plank_mode', s.plank_mode || 'adrift');
+    setRadioValue('plank_rescue_action', s.plank_rescue_action || 'promote');
+    setRadioValue('display_mode', s.display_mode || 'exact');
+
+    document.getElementById('set-plank-days').value = String(s.plank_days !== undefined ? s.plank_days : 14);
+    document.getElementById('set-min-retention').value = String(s.min_retention_days || 0);
+    document.getElementById('set-plunder-cap').value = String(s.shared_plunder_max_bytes || 0);
+
     toggleRescueAction();
-    checkCapWarning(s);
   } catch { /* silent */ }
 }
 
-function checkCapWarning(settings) {
-  const warning = document.getElementById('cap-warning');
-  if (settings.plunder_cap_bytes > 0 && settings.plunder_used_bytes > 0) {
-    const pct = (settings.plunder_used_bytes / settings.plunder_cap_bytes) * 100;
-    warning.style.display = pct >= 90 ? 'block' : 'none';
-  } else {
-    warning.style.display = 'none';
+function setRadioValue(name, value) {
+  var radios = document.querySelectorAll('input[name="' + name + '"]');
+  radios.forEach(function(r) {
+    r.checked = (r.value === value);
+    var opt = r.closest('.radio-option');
+    if (opt) opt.classList.toggle('selected', r.checked);
+  });
+}
+
+function getRadioValue(name) {
+  var checked = document.querySelector('input[name="' + name + '"]:checked');
+  return checked ? checked.value : '';
+}
+
+// Make radio options highlight on click
+document.addEventListener('change', function(e) {
+  if (e.target.type === 'radio') {
+    var group = e.target.closest('.radio-group');
+    if (group) {
+      group.querySelectorAll('.radio-option').forEach(function(o) {
+        o.classList.toggle('selected', o.querySelector('input').checked);
+      });
+    }
   }
+});
+
+function toggleRescueAction() {
+  var mode = getRadioValue('plank_mode');
+  document.getElementById('rescue-action-row').style.display = mode === 'adrift' ? 'block' : 'none';
 }
 
 async function saveSettings() {
-  const msg = document.getElementById('settings-msg');
-  const capGb = parseInt(document.getElementById('set-plunder-cap').value) || 0;
+  var msg = document.getElementById('settings-msg');
   try {
-    const resp = await fetch(API + '/api/admin/settings', {
+    var resp = await fetch(API + '/api/admin/settings', {
       method: 'PUT',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        promotion_mode: document.getElementById('set-promotion-mode').value,
-        shared_plunder_max_bytes: capGb * 1073741824,
+        promotion_mode: getRadioValue('promotion_mode'),
+        shared_plunder_max_bytes: parseInt(document.getElementById('set-plunder-cap').value) || 0,
         min_retention_days: parseInt(document.getElementById('set-min-retention').value) || 0,
-        display_mode: document.getElementById('set-display-mode').value,
-        plank_mode: document.getElementById('set-plank-mode').value,
+        display_mode: getRadioValue('display_mode'),
+        plank_mode: getRadioValue('plank_mode'),
         plank_days: parseInt(document.getElementById('set-plank-days').value) || 0,
-        plank_rescue_action: document.getElementById('set-rescue-action').value,
+        plank_rescue_action: getRadioValue('plank_rescue_action'),
       }),
     });
     if (resp.ok) {
@@ -513,7 +951,7 @@ async function saveSettings() {
       msg.style.color = 'var(--green)';
       setTimeout(function() { msg.textContent = ''; }, 4000);
     } else {
-      const d = await resp.json();
+      var d = await resp.json();
       msg.textContent = 'Save failed: ' + (d.detail || 'Unknown error');
       msg.style.color = 'var(--red)';
     }
@@ -523,13 +961,25 @@ async function saveSettings() {
   }
 }
 
-function toggleRescueAction() {
-  const mode = document.getElementById('set-plank-mode').value;
-  document.getElementById('rescue-action-row').style.display = mode === 'adrift' ? 'block' : 'none';
+// --- Sync ---
+
+async function triggerSync() {
+  var msg = document.getElementById('sync-msg');
+  msg.textContent = 'Syncing...';
+  msg.className = 'sync-status';
+  try {
+    await fetch(API + '/api/admin/sync', {method: 'POST'});
+    msg.textContent = 'Sync complete!';
+    msg.className = 'sync-status success';
+    loadAdmin();
+    setTimeout(function() { msg.textContent = ''; }, 5000);
+  } catch (e) {
+    msg.textContent = 'Sync failed: ' + e.message;
+  }
 }
 
 function esc(s) {
-  const d = document.createElement('div');
+  var d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
 }

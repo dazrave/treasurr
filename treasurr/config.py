@@ -28,7 +28,11 @@ class QuotaConfig:
     promotion_threshold: int = 2
     promotion_exclude_requester: bool = True
     watch_completion_percent: int = 80
-    tiers: tuple[QuotaTier, ...] = ()
+    tiers: tuple[QuotaTier, ...] = (
+        QuotaTier(name="Bottle of Rum", bytes=536_870_912_000),       # 500 GB
+        QuotaTier(name="Case of Rum", bytes=2_199_023_255_552),       # 2 TB
+        QuotaTier(name="Barrel of Rum", bytes=5_497_558_138_880),     # 5 TB
+    )
     promotion_mode: str = "full_plunder"  # "full_plunder" | "split_the_loot"
     shared_plunder_max_bytes: int = 0  # 0 = unlimited
     min_retention_days: int = 0  # 0 = no floor

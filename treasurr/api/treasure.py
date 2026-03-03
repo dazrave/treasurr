@@ -101,6 +101,9 @@ async def get_treasure_chest(request: Request) -> dict:
 
     result_items = []
     for item in items:
+        # Skip zero-size items (requested but not yet downloaded)
+        if item.content.size_bytes <= 0:
+            continue
         quality, quality_note = _derive_quality(item.content.size_bytes, item.content.media_type)
         result_items.append({
             "content_id": item.content.id,

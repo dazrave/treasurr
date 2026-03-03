@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, HTTPException, Request
 
 from treasurr.api.auth import get_current_user
@@ -28,16 +30,31 @@ async def _require_admin(request: Request):
     return user
 
 
+@router.get("/tiers")
+async def get_tiers(request: Request) -> dict:
+    """Return configured quota tiers."""
+    await _require_admin(request)
+    config = _get_config(request)
+    return {
+        "tiers": [
+            {"name": t.name, "bytes": t.bytes, "display": format_bytes(t.bytes)}
+            for t in config.quotas.tiers
+        ]
+    }
+
+
 @router.get("/crew")
 async def get_crew(request: Request) -> dict:
-    """Get all users with their quota summaries."""
+    """Get all users with their quota summaries and activity data."""
     await _require_admin(request)
     db = _get_db(request)
     users = db.get_all_users()
+    activity = db.get_user_activity()
 
     crew = []
     for user in users:
         summary = db.get_quota_summary(user.id)
+        user_activity = activity.get(user.id, {})
         crew.append({
             "id": user.id,
             "username": user.plex_username,
@@ -50,9 +67,30 @@ async def get_crew(request: Request) -> dict:
             "usage_percent": summary.usage_percent if summary else 0,
             "owned_count": summary.owned_count if summary else 0,
             "created_at": user.created_at,
+            "last_request_at": user_activity.get("last_request_at"),
+            "request_count": user_activity.get("request_count", 0),
         })
 
     return {"crew": crew}
+
+
+@router.put("/crew/bulk")
+async def bulk_update_crew(request: Request) -> dict:
+    """Bulk update quota for multiple crew members."""
+    await _require_admin(request)
+    db = _get_db(request)
+    body = await request.json()
+
+    user_ids = body.get("user_ids", [])
+    quota_bytes = body.get("quota_bytes")
+
+    if not user_ids:
+        raise HTTPException(status_code=400, detail="Provide at least one user_id")
+    if quota_bytes is None or quota_bytes < 0:
+        raise HTTPException(status_code=400, detail="Provide a valid quota_bytes value")
+
+    updated = db.bulk_update_quota(user_ids, quota_bytes)
+    return {"updated": updated, "quota_bytes": quota_bytes}
 
 
 @router.put("/crew/{user_id}")
@@ -191,6 +229,29 @@ async def get_stats(request: Request) -> dict:
         plunder_cap_percent = 0.0
     plunder_cap_warning = plunder_cap_percent > 90.0
 
+    # Disk space from Radarr (synced periodically)
+    disk_raw = db.get_setting("disk_space", "{}")
+    try:
+        disk_space = json.loads(disk_raw)
+    except (json.JSONDecodeError, TypeError):
+        disk_space = {}
+
+    # Per-user breakdown for storage bar
+    users = db.get_all_users()
+    activity = db.get_user_activity()
+    user_storage = []
+    for user in users:
+        summary = db.get_quota_summary(user.id)
+        used = summary.used_bytes if summary else 0
+        if used > 0:
+            user_storage.append({
+                "user_id": user.id,
+                "username": user.plex_username,
+                "used_bytes": used,
+                "used_display": format_bytes(used),
+                "quota_bytes": user.quota_bytes,
+            })
+
     return {
         "total_bytes": stats["total_bytes"],
         "total_display": format_bytes(stats["total_bytes"]),
@@ -210,4 +271,9 @@ async def get_stats(request: Request) -> dict:
         "plunder_cap_percent": plunder_cap_percent,
         "plunder_cap_warning": plunder_cap_warning,
         "display_mode": display_mode,
+        "disk_total_bytes": disk_space.get("total_bytes", 0),
+        "disk_total_display": format_bytes(disk_space.get("total_bytes", 0)),
+        "disk_free_bytes": disk_space.get("free_bytes", 0),
+        "disk_free_display": format_bytes(disk_space.get("free_bytes", 0)),
+        "user_storage": user_storage,
     }

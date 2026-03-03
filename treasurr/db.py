@@ -250,6 +250,45 @@ class Database:
             row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
             return _row_to_user(row) if row else None
 
+    def bulk_update_quota(self, user_ids: list[int], quota_bytes: int) -> int:
+        """Update quota for multiple users at once. Returns count of updated users."""
+        if not user_ids:
+            return 0
+        placeholders = ",".join("?" * len(user_ids))
+        now = _now()
+        with self.connection() as conn:
+            conn.execute(
+                f"UPDATE users SET quota_bytes = ? WHERE id IN ({placeholders})",
+                [quota_bytes, *user_ids],
+            )
+            for uid in user_ids:
+                conn.execute(
+                    "INSERT INTO quota_transactions (user_id, change_bytes, reason, created_at) VALUES (?, ?, ?, ?)",
+                    (uid, quota_bytes, "admin_bulk_grant", now),
+                )
+        return len(user_ids)
+
+    def get_user_activity(self) -> dict[int, dict]:
+        """Get last request date and request count per user.
+
+        Returns {user_id: {"last_request_at": str|None, "request_count": int}}.
+        """
+        with self.connection() as conn:
+            rows = conn.execute(
+                """SELECT co.owner_user_id as user_id,
+                          MAX(co.owned_at) as last_request_at,
+                          COUNT(co.id) as request_count
+                   FROM content_ownership co
+                   GROUP BY co.owner_user_id"""
+            ).fetchall()
+            return {
+                row["user_id"]: {
+                    "last_request_at": row["last_request_at"],
+                    "request_count": row["request_count"],
+                }
+                for row in rows
+            }
+
     # --- Content ---
 
     def upsert_content(
@@ -296,6 +335,10 @@ class Database:
     def update_content_size(self, content_id: int, size_bytes: int) -> None:
         with self.connection() as conn:
             conn.execute("UPDATE content SET size_bytes = ? WHERE id = ?", (size_bytes, content_id))
+
+    def update_content_title(self, content_id: int, title: str) -> None:
+        with self.connection() as conn:
+            conn.execute("UPDATE content SET title = ? WHERE id = ?", (title, content_id))
 
     def update_content_status(self, content_id: int, status: str) -> None:
         with self.connection() as conn:

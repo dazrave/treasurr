@@ -140,11 +140,20 @@ class OverseerrClient:
             media = item.get("media", {})
             requested_by = item.get("requestedBy", {})
             media_type = media.get("mediaType", "movie")
+            # Title can be in multiple places depending on Overseerr/Seer version
+            title = (
+                media.get("title")
+                or media.get("originalTitle")
+                or media.get("name")
+                or item.get("title")
+                or item.get("name")
+                or "Unknown"
+            )
             requests.append(OverseerrRequest(
                 request_id=item.get("id", 0),
                 tmdb_id=media.get("tmdbId", 0),
                 media_type=media_type,
-                title=media.get("title", item.get("title", "Unknown")),
+                title=title,
                 requested_by_user_id=requested_by.get("id", 0),
                 requested_by_username=requested_by.get("displayName", requested_by.get("username", "")),
                 requested_by_email=requested_by.get("email", ""),
@@ -282,6 +291,18 @@ class RadarrClient:
 
     async def delete(self, movie_id: int, delete_files: bool = True) -> None:
         await self._request("DELETE", f"/movie/{movie_id}", params={"deleteFiles": delete_files})
+
+    async def get_diskspace(self) -> list[dict]:
+        """Get disk space info from Radarr. Returns list of {path, freeSpace, totalSpace}."""
+        data = await self._request("GET", "/diskspace")
+        return [
+            {
+                "path": item.get("path", ""),
+                "free_bytes": item.get("freeSpace", 0),
+                "total_bytes": item.get("totalSpace", 0),
+            }
+            for item in (data or [])
+        ]
 
     async def lookup_by_tmdb(self, tmdb_id: int) -> ArrMedia | None:
         data = await self._request("GET", f"/movie/lookup/tmdb", params={"tmdbId": tmdb_id})
