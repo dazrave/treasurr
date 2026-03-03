@@ -29,6 +29,13 @@ class QuotaConfig:
     promotion_exclude_requester: bool = True
     watch_completion_percent: int = 80
     tiers: tuple[QuotaTier, ...] = ()
+    promotion_mode: str = "full_plunder"  # "full_plunder" | "split_the_loot"
+    shared_plunder_max_bytes: int = 0  # 0 = unlimited
+    min_retention_days: int = 0  # 0 = no floor
+    display_mode: str = "exact"  # "exact" | "round_up" | "percentage"
+    plank_mode: str = "adrift"  # "anchored" | "adrift"
+    plank_days: int = 14  # 0 = instant delete (no plank)
+    plank_rescue_action: str = "promote"  # "promote" | "adopt"
 
 
 @dataclass(frozen=True)
@@ -102,6 +109,13 @@ def load_config(path: str | Path = "config.yaml") -> Config:
             promotion_exclude_requester=quotas_raw.get("promotion_exclude_requester", True),
             watch_completion_percent=quotas_raw.get("watch_completion_percent", 80),
             tiers=tiers,
+            promotion_mode=quotas_raw.get("promotion_mode", "full_plunder"),
+            shared_plunder_max_bytes=quotas_raw.get("shared_plunder_max_bytes", 0),
+            min_retention_days=quotas_raw.get("min_retention_days", 0),
+            display_mode=quotas_raw.get("display_mode", "exact"),
+            plank_mode=quotas_raw.get("plank_mode", "adrift"),
+            plank_days=quotas_raw.get("plank_days", 14),
+            plank_rescue_action=quotas_raw.get("plank_rescue_action", "promote"),
         ),
         safety=SafetyConfig(
             max_deletions_per_hour=safety_raw.get("max_deletions_per_hour", 10),

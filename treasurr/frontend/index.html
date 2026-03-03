@@ -229,6 +229,29 @@ a:hover { color: var(--gold-bright); }
   transition: all 0.15s;
 }
 .scuttle-btn:hover { background: var(--red); color: #fff; }
+.rescue-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  border: 1px solid var(--green);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--green);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.rescue-btn:hover { background: var(--green); color: #fff; }
+.plank-countdown {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--red);
+  font-weight: 600;
+}
+.plank-adrift-note {
+  font-size: 11px;
+  color: var(--blue);
+  font-style: italic;
+}
 
 /* Activity */
 .activity-item {
@@ -299,6 +322,68 @@ a:hover { color: var(--gold-bright); }
 .modal p { margin-bottom: 20px; color: var(--text-dim); font-size: 14px; }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
+/* Onboarding wizard */
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.onboarding-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 36px 32px 28px;
+  max-width: 480px;
+  width: 92%;
+  text-align: center;
+}
+.onboarding-card h2 {
+  color: var(--gold);
+  margin-bottom: 16px;
+  font-size: 22px;
+}
+.onboarding-card p {
+  color: var(--text-dim);
+  font-size: 15px;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+.onboarding-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.onboarding-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  transition: background 0.2s;
+}
+.onboarding-dot.active { background: var(--gold); border-color: var(--gold); }
+.onboarding-nav { display: flex; justify-content: center; gap: 12px; }
+
+/* Quality badge */
+.quality-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
 @media (max-width: 600px) {
   .main { padding: 12px; }
   .content-item { flex-wrap: wrap; gap: 8px; }
@@ -316,6 +401,21 @@ a:hover { color: var(--gold-bright); }
     <h1>TREASURR</h1>
     <p>Your treasure. Your crew. Your plunder.</p>
     <button class="btn btn-login" onclick="startPlexLogin()">Sign in with Plex</button>
+  </div>
+
+  <!-- Onboarding Wizard -->
+  <div id="onboarding" style="display:none;">
+    <div class="onboarding-overlay">
+      <div class="onboarding-card">
+        <h2 id="ob-title"></h2>
+        <p id="ob-body"></p>
+        <div class="onboarding-dots" id="ob-dots"></div>
+        <div class="onboarding-nav">
+          <button class="btn" id="ob-prev" onclick="obPrev()" style="display:none;">Back</button>
+          <button class="btn btn-gold" id="ob-next" onclick="obNext()">Next</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Dashboard -->
@@ -343,6 +443,24 @@ a:hover { color: var(--gold-bright); }
         <div class="quota-percent" id="quota-percent">0%</div>
       </div>
 
+      <!-- Auto-cleanup setting -->
+      <div class="quota-card" style="padding:16px 24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:13px; font-weight:600; color:var(--text);">Auto-cleanup</div>
+            <div id="retention-note" style="font-size:12px; color:var(--text-dim);"></div>
+          </div>
+          <select id="auto-scuttle-select" onchange="setAutoScuttle(this.value)" style="padding:6px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:13px;">
+            <option value="0">Off</option>
+            <option value="7">7 days after watching</option>
+            <option value="14">2 weeks after watching</option>
+            <option value="30">1 month after watching</option>
+            <option value="60">2 months after watching</option>
+            <option value="90">3 months after watching</option>
+          </select>
+        </div>
+      </div>
+
       <!-- Cargo (owned content) -->
       <div class="section">
         <div class="section-header">
@@ -352,6 +470,15 @@ a:hover { color: var(--gold-bright); }
         <div id="cargo-list">
           <div class="loading">Loading your cargo...</div>
         </div>
+      </div>
+
+      <!-- Walking the Plank -->
+      <div class="section" id="plank-section" style="display:none;">
+        <div class="section-header">
+          <span>Walking the Plank</span>
+          <span id="plank-mode-label"></span>
+        </div>
+        <div id="plank-list"></div>
       </div>
 
       <!-- Recent Activity -->
@@ -410,13 +537,17 @@ function showLogin() {
 
 function showDashboard() {
   document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('dashboard').style.display = 'block';
   document.getElementById('header-username').textContent = currentUser.username;
   if (currentUser.is_admin) {
     document.getElementById('admin-link-container').innerHTML =
       '<a href="/admin" class="admin-link">&#9881; Admin Panel</a>';
   }
-  loadDashboard();
+  if (!currentUser.onboarded) {
+    showOnboarding();
+  } else {
+    document.getElementById('dashboard').style.display = 'block';
+    loadDashboard();
+  }
 }
 
 async function startPlexLogin() {
@@ -459,21 +590,46 @@ async function logout() {
 
 // --- Dashboard Data ---
 async function loadDashboard() {
-  await Promise.all([loadQuota(), loadCargo(), loadActivity()]);
+  await Promise.all([loadQuota(), loadCargo(), loadPlank(), loadActivity()]);
 }
 
 async function loadQuota() {
   try {
     const resp = await fetch(API + '/api/treasure');
     const data = await resp.json();
-    document.getElementById('quota-used').textContent = data.used_display;
+
+    // Store settings for client-side use
+    window._displayMode = data.display_mode || 'exact';
+    window._plankDays = data.plank_days || 0;
+
+    // Quota numbers — show shared portion if split_the_loot
+    let usedText = data.used_display;
+    if (data.promotion_mode === 'split_the_loot' && data.split_display) {
+      usedText = data.used_display + ' (' + data.split_display + ' shared)';
+    }
+    document.getElementById('quota-used').textContent = usedText;
     document.getElementById('quota-total').textContent = data.quota_display;
     document.getElementById('quota-percent').textContent = data.usage_percent + '%';
+
     const bar = document.getElementById('quota-bar');
     bar.style.width = Math.min(data.usage_percent, 100) + '%';
     bar.className = 'quota-bar-fill';
     if (data.usage_percent >= 90) bar.classList.add('danger');
     else if (data.usage_percent >= 75) bar.classList.add('warning');
+
+    // Auto-scuttle select
+    const scuttleSelect = document.getElementById('auto-scuttle-select');
+    if (data.auto_scuttle_days !== undefined) {
+      scuttleSelect.value = String(data.auto_scuttle_days || 0);
+    }
+
+    // Retention note
+    const retNote = document.getElementById('retention-note');
+    if (data.min_retention_days && data.min_retention_days > 0) {
+      retNote.textContent = 'Your admin requires content to stay for at least ' + data.min_retention_days + ' days.';
+    } else {
+      retNote.textContent = 'Automatically remove content after you finish watching it.';
+    }
   } catch { /* silent */ }
 }
 
@@ -498,13 +654,19 @@ async function loadCargo() {
       } else {
         meta = viewers + ' crew watched';
       }
+      const qualityBadge = item.quality
+        ? '<span class="quality-badge">' + escapeHtml(item.quality) + '</span>'
+        : '';
+      const qualityNote = item.quality_note
+        ? ' &middot; ' + escapeHtml(item.quality_note)
+        : '';
       const scuttleBtn = item.can_scuttle
         ? '<button class="scuttle-btn" onclick="scuttle(' + item.content_id + ', \'' + escapeHtml(item.title) + '\', \'' + item.size_display + '\')">&#127988; Scuttle</button>'
         : '';
       return '<div class="content-item">' +
         '<span class="content-icon">' + icon + '</span>' +
-        '<div class="content-info"><div class="content-title">' + escapeHtml(item.title) + '</div>' +
-        '<div class="content-meta">' + meta + '</div></div>' +
+        '<div class="content-info"><div class="content-title">' + escapeHtml(item.title) + qualityBadge + '</div>' +
+        '<div class="content-meta">' + meta + qualityNote + '</div></div>' +
         '<div class="content-size">' + item.size_display + '</div>' +
         '<div class="content-viewers">' + viewers + ' &#128065;</div>' +
         scuttleBtn + '</div>';
@@ -512,6 +674,65 @@ async function loadCargo() {
   } catch {
     container.innerHTML = '<div class="empty">Failed to load cargo</div>';
   }
+}
+
+async function loadPlank() {
+  const section = document.getElementById('plank-section');
+  const container = document.getElementById('plank-list');
+  try {
+    const resp = await fetch(API + '/api/plank');
+    const data = await resp.json();
+    if (data.items.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = 'block';
+    const modeLabel = document.getElementById('plank-mode-label');
+    modeLabel.textContent = data.plank_mode === 'adrift' ? 'Adrift' : 'Anchored';
+
+    container.innerHTML = data.items.map(function(item) {
+      const icon = item.media_type === 'movie' ? '&#127916;' : '&#128250;';
+      const daysLeft = daysRemaining(item.plank_started_at, data.plank_days);
+      const countdown = daysLeft <= 0 ? 'Expiring soon' : daysLeft + ' days left';
+      const isOwner = currentUser && currentUser.id === item.owner_user_id;
+      let actionBtn = '';
+      if (isOwner) {
+        actionBtn = '<button class="rescue-btn" onclick="rescueContent(' + item.content_id + ')">&#9875; Rescue</button>';
+      } else if (data.plank_mode === 'adrift') {
+        actionBtn = '<span class="plank-adrift-note">Watch it to save it!</span>';
+      }
+      return '<div class="content-item">' +
+        '<span class="content-icon">' + icon + '</span>' +
+        '<div class="content-info"><div class="content-title">' + escapeHtml(item.title) + '</div>' +
+        '<div class="content-meta"><span class="plank-countdown">' + countdown + '</span></div></div>' +
+        '<div class="content-size">' + item.size_display + '</div>' +
+        actionBtn + '</div>';
+    }).join('');
+  } catch {
+    section.style.display = 'none';
+  }
+}
+
+async function rescueContent(contentId) {
+  try {
+    const resp = await fetch(API + '/api/treasure/' + contentId + '/rescue', {method: 'POST'});
+    const data = await resp.json();
+    if (resp.ok) {
+      loadDashboard();
+    } else {
+      alert(data.detail || 'Rescue failed');
+    }
+  } catch (e) {
+    alert('Rescue failed: ' + e.message);
+  }
+}
+
+function daysRemaining(plankStartedAt, plankDays) {
+  if (!plankStartedAt) return 0;
+  const started = new Date(plankStartedAt);
+  const expires = new Date(started.getTime() + plankDays * 86400000);
+  const now = new Date();
+  return Math.max(0, Math.ceil((expires - now) / 86400000));
 }
 
 async function loadActivity() {
@@ -541,9 +762,17 @@ async function loadActivity() {
 // --- Scuttle ---
 function scuttle(contentId, title, sizeDisplay) {
   pendingScuttleId = contentId;
-  document.getElementById('scuttle-msg').innerHTML =
-    'Delete <strong>' + escapeHtml(title) + '</strong> (' + sizeDisplay + ')? ' +
-    'This will permanently remove the files from the server.';
+  const plankDays = window._plankDays || 0;
+  let msg;
+  if (plankDays > 0) {
+    msg = 'Scuttle <strong>' + escapeHtml(title) + '</strong> (' + sizeDisplay + ')? ' +
+      'It will walk the plank for ' + plankDays + ' days. During that time, the crew can save it. ' +
+      'After ' + plankDays + ' days, it\'s gone for good.';
+  } else {
+    msg = 'Delete <strong>' + escapeHtml(title) + '</strong> (' + sizeDisplay + ')? ' +
+      'This will permanently remove the files from the server.';
+  }
+  document.getElementById('scuttle-msg').innerHTML = msg;
   document.getElementById('scuttle-modal').classList.add('active');
 }
 
@@ -581,6 +810,104 @@ function daysSince(isoDate) {
   const d = new Date(isoDate);
   const now = new Date();
   return Math.floor((now - d) / 86400000);
+}
+
+// --- Auto-scuttle ---
+async function setAutoScuttle(days) {
+  try {
+    const resp = await fetch(API + '/api/treasure/retention', {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({auto_scuttle_days: parseInt(days) || 0}),
+    });
+    if (!resp.ok) {
+      const d = await resp.json();
+      alert('Failed to update: ' + (d.detail || 'Unknown error'));
+    }
+  } catch (e) {
+    alert('Failed to update auto-cleanup: ' + e.message);
+  }
+}
+
+// --- Onboarding ---
+const obSteps = [
+  {
+    title: 'Welcome aboard!',
+    body: 'Here\'s a quick tour of how your Plex storage works. It\'ll only take a minute.'
+  },
+  {
+    title: 'Your Space',
+    body: 'You have a set amount of storage space. When you request a film or show, it uses some of your space -- like filling a treasure chest.'
+  },
+  {
+    title: 'Sharing is caring',
+    body: 'When other people watch something you requested, it gets shared. Once enough people watch it, it stops counting against your space entirely!'
+  },
+  {
+    title: 'Quality matters',
+    body: 'Higher quality means bigger files. A 4K film uses roughly 4 times more space than a regular HD one. You\'ll see quality labels on each item so you always know what\'s what.'
+  },
+  {
+    title: 'Auto-cleanup',
+    body: 'You can set content to automatically delete after you\'ve finished watching it. Your admin might also set a minimum time before things can be removed, so everyone gets a chance to watch.'
+  },
+  {
+    title: 'You\'re all set!',
+    body: 'Enjoy your treasure. If you ever need a refresher, check the help section.'
+  }
+];
+let obStep = 0;
+
+function showOnboarding() {
+  obStep = 0;
+  document.getElementById('onboarding').style.display = 'block';
+  renderObStep();
+}
+
+function renderObStep() {
+  document.getElementById('ob-title').textContent = obSteps[obStep].title;
+  document.getElementById('ob-body').textContent = obSteps[obStep].body;
+
+  // Dots
+  const dotsHtml = obSteps.map(function(_, i) {
+    return '<div class="onboarding-dot' + (i === obStep ? ' active' : '') + '"></div>';
+  }).join('');
+  document.getElementById('ob-dots').innerHTML = dotsHtml;
+
+  // Buttons
+  document.getElementById('ob-prev').style.display = obStep > 0 ? 'inline-block' : 'none';
+  const nextBtn = document.getElementById('ob-next');
+  if (obStep === obSteps.length - 1) {
+    nextBtn.textContent = 'Get Started';
+    nextBtn.onclick = completeOnboarding;
+  } else {
+    nextBtn.textContent = 'Next';
+    nextBtn.onclick = obNext;
+  }
+}
+
+function obNext() {
+  if (obStep < obSteps.length - 1) {
+    obStep++;
+    renderObStep();
+  }
+}
+
+function obPrev() {
+  if (obStep > 0) {
+    obStep--;
+    renderObStep();
+  }
+}
+
+async function completeOnboarding() {
+  try {
+    await fetch(API + '/api/treasure/onboarded', {method: 'POST'});
+  } catch { /* proceed anyway */ }
+  currentUser.onboarded = true;
+  document.getElementById('onboarding').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  loadDashboard();
 }
 
 // Boot

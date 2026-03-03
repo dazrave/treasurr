@@ -15,6 +15,8 @@ class User:
     bonus_bytes: int = 0
     is_admin: bool = False
     created_at: str = ""
+    auto_scuttle_days: int = 0
+    onboarded: bool = False
 
 
 @dataclass(frozen=True)
@@ -36,9 +38,10 @@ class ContentOwnership:
     id: int
     content_id: int
     owner_user_id: int
-    status: str = "owned"  # 'owned', 'promoted', 'released'
+    status: str = "owned"  # 'owned', 'promoted', 'released', 'plank'
     owned_at: str = ""
     promoted_at: str | None = None
+    plank_started_at: str | None = None
 
 
 @dataclass(frozen=True)
@@ -87,20 +90,52 @@ class QuotaSummary:
     bonus_bytes: int
     used_bytes: int
     owned_count: int
+    split_bytes: int = 0
 
     @property
     def total_bytes(self) -> int:
         return self.quota_bytes + self.bonus_bytes
 
     @property
+    def total_used_bytes(self) -> int:
+        return self.used_bytes + self.split_bytes
+
+    @property
     def available_bytes(self) -> int:
-        return self.total_bytes - self.used_bytes
+        return self.total_bytes - self.total_used_bytes
 
     @property
     def usage_percent(self) -> float:
         if self.total_bytes == 0:
             return 0.0
-        return round((self.used_bytes / self.total_bytes) * 100, 1)
+        return round((self.total_used_bytes / self.total_bytes) * 100, 1)
+
+
+@dataclass(frozen=True)
+class QuotaSplit:
+    """Per-user share of promoted content in split_the_loot mode."""
+    id: int
+    content_id: int
+    user_id: int
+    share_bytes: int
+    created_at: str
+
+
+@dataclass(frozen=True)
+class ScuttleResult:
+    """Result of a scuttle (delete) operation."""
+    success: bool
+    message: str
+    freed_bytes: int = 0
+    walked_plank: bool = False
+
+
+@dataclass(frozen=True)
+class RescueResult:
+    """Result of a plank rescue operation."""
+    success: bool
+    message: str
+    action: str = ""  # 'rescued', 'promoted', 'adopted'
 
 
 @dataclass(frozen=True)

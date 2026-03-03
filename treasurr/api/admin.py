@@ -96,22 +96,118 @@ async def trigger_sync(request: Request) -> dict:
     return {"message": "Sync complete", "results": results}
 
 
+@router.get("/settings")
+async def get_settings(request: Request) -> dict:
+    """Return current settings with defaults from config."""
+    await _require_admin(request)
+    db = _get_db(request)
+    config = _get_config(request)
+
+    db_settings = db.get_all_settings()
+
+    return {
+        "promotion_mode": db_settings.get("promotion_mode", config.quotas.promotion_mode),
+        "shared_plunder_max_bytes": int(db_settings.get("shared_plunder_max_bytes", str(config.quotas.shared_plunder_max_bytes))),
+        "min_retention_days": int(db_settings.get("min_retention_days", str(config.quotas.min_retention_days))),
+        "display_mode": db_settings.get("display_mode", config.quotas.display_mode),
+        "plank_mode": db_settings.get("plank_mode", config.quotas.plank_mode),
+        "plank_days": int(db_settings.get("plank_days", str(config.quotas.plank_days))),
+        "plank_rescue_action": db_settings.get("plank_rescue_action", config.quotas.plank_rescue_action),
+    }
+
+
+@router.put("/settings")
+async def update_settings(request: Request) -> dict:
+    """Update settings with validation."""
+    await _require_admin(request)
+    db = _get_db(request)
+    body = await request.json()
+
+    valid_promotion_modes = ("full_plunder", "split_the_loot")
+    valid_display_modes = ("exact", "round_up", "percentage")
+
+    if "promotion_mode" in body:
+        if body["promotion_mode"] not in valid_promotion_modes:
+            raise HTTPException(status_code=400, detail=f"Invalid promotion_mode. Must be one of: {valid_promotion_modes}")
+        db.set_setting("promotion_mode", body["promotion_mode"])
+
+    if "shared_plunder_max_bytes" in body:
+        val = int(body["shared_plunder_max_bytes"])
+        if val < 0:
+            raise HTTPException(status_code=400, detail="shared_plunder_max_bytes cannot be negative")
+        db.set_setting("shared_plunder_max_bytes", str(val))
+
+    if "min_retention_days" in body:
+        val = int(body["min_retention_days"])
+        if val < 0:
+            raise HTTPException(status_code=400, detail="min_retention_days cannot be negative")
+        db.set_setting("min_retention_days", str(val))
+
+    if "display_mode" in body:
+        if body["display_mode"] not in valid_display_modes:
+            raise HTTPException(status_code=400, detail=f"Invalid display_mode. Must be one of: {valid_display_modes}")
+        db.set_setting("display_mode", body["display_mode"])
+
+    valid_plank_modes = ("anchored", "adrift")
+    if "plank_mode" in body:
+        if body["plank_mode"] not in valid_plank_modes:
+            raise HTTPException(status_code=400, detail=f"Invalid plank_mode. Must be one of: {valid_plank_modes}")
+        db.set_setting("plank_mode", body["plank_mode"])
+
+    if "plank_days" in body:
+        val = int(body["plank_days"])
+        if val < 0:
+            raise HTTPException(status_code=400, detail="plank_days cannot be negative")
+        db.set_setting("plank_days", str(val))
+
+    valid_rescue_actions = ("promote", "adopt")
+    if "plank_rescue_action" in body:
+        if body["plank_rescue_action"] not in valid_rescue_actions:
+            raise HTTPException(status_code=400, detail=f"Invalid plank_rescue_action. Must be one of: {valid_rescue_actions}")
+        db.set_setting("plank_rescue_action", body["plank_rescue_action"])
+
+    # Return updated settings
+    return await get_settings(request)
+
+
 @router.get("/stats")
 async def get_stats(request: Request) -> dict:
     """Get global storage statistics."""
     await _require_admin(request)
     db = _get_db(request)
+    config = _get_config(request)
     stats = db.get_global_stats()
+
+    db_settings = db.get_all_settings()
+    shared_plunder_max_bytes = int(db_settings.get(
+        "shared_plunder_max_bytes", str(config.quotas.shared_plunder_max_bytes),
+    ))
+    display_mode = db_settings.get("display_mode", config.quotas.display_mode)
+
+    promoted_bytes = stats["promoted_bytes"]
+    if shared_plunder_max_bytes > 0:
+        plunder_cap_percent = round((promoted_bytes / shared_plunder_max_bytes) * 100, 1)
+    else:
+        plunder_cap_percent = 0.0
+    plunder_cap_warning = plunder_cap_percent > 90.0
 
     return {
         "total_bytes": stats["total_bytes"],
         "total_display": format_bytes(stats["total_bytes"]),
         "owned_bytes": stats["owned_bytes"],
         "owned_display": format_bytes(stats["owned_bytes"]),
-        "promoted_bytes": stats["promoted_bytes"],
-        "promoted_display": format_bytes(stats["promoted_bytes"]),
+        "promoted_bytes": promoted_bytes,
+        "promoted_display": format_bytes(promoted_bytes),
         "unowned_bytes": stats["unowned_bytes"],
         "unowned_display": format_bytes(stats["unowned_bytes"]),
+        "plank_bytes": stats["plank_bytes"],
+        "plank_display": format_bytes(stats["plank_bytes"]),
+        "plank_count": stats["plank_count"],
         "user_count": stats["user_count"],
         "content_count": stats["content_count"],
+        "shared_plunder_max_bytes": shared_plunder_max_bytes,
+        "shared_plunder_max_display": format_bytes(shared_plunder_max_bytes),
+        "plunder_cap_percent": plunder_cap_percent,
+        "plunder_cap_warning": plunder_cap_warning,
+        "display_mode": display_mode,
     }

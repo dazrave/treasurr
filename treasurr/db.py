@@ -14,6 +14,7 @@ from treasurr.models import (
     DeletionRecord,
     OwnedContent,
     PromotionRecord,
+    QuotaSplit,
     QuotaSummary,
     QuotaTransaction,
     User,
@@ -50,7 +51,7 @@ CREATE TABLE IF NOT EXISTS content_ownership (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     content_id INTEGER NOT NULL UNIQUE,
     owner_user_id INTEGER NOT NULL,
-    status TEXT DEFAULT 'owned' CHECK(status IN ('owned', 'promoted', 'released')),
+    status TEXT DEFAULT 'owned' CHECK(status IN ('owned', 'promoted', 'released', 'plank')),
     owned_at TEXT NOT NULL,
     promoted_at TEXT,
     FOREIGN KEY (content_id) REFERENCES content(id),
@@ -107,6 +108,23 @@ CREATE TABLE IF NOT EXISTS sessions (
     expires_at TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
+
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS quota_splits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    content_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    share_bytes INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(content_id, user_id),
+    FOREIGN KEY (content_id) REFERENCES content(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
 """
 
 
@@ -132,6 +150,36 @@ class Database:
     def _init_schema(self) -> None:
         with self.connection() as conn:
             conn.executescript(SCHEMA)
+            self._migrate(conn)
+
+    def _migrate(self, conn: sqlite3.Connection) -> None:
+        """Add columns/tables that may not exist in older databases."""
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
+        if "auto_scuttle_days" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN auto_scuttle_days INTEGER DEFAULT 0")
+        if "onboarded" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN onboarded BOOLEAN DEFAULT 0")
+
+        ownership_cols = {row[1] for row in conn.execute("PRAGMA table_info(content_ownership)").fetchall()}
+        if "plank_started_at" not in ownership_cols:
+            # Recreate content_ownership table to update CHECK constraint and add plank_started_at
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS content_ownership_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    content_id INTEGER NOT NULL UNIQUE,
+                    owner_user_id INTEGER NOT NULL,
+                    status TEXT DEFAULT 'owned' CHECK(status IN ('owned', 'promoted', 'released', 'plank')),
+                    owned_at TEXT NOT NULL,
+                    promoted_at TEXT,
+                    plank_started_at TEXT,
+                    FOREIGN KEY (content_id) REFERENCES content(id),
+                    FOREIGN KEY (owner_user_id) REFERENCES users(id)
+                );
+                INSERT INTO content_ownership_new (id, content_id, owner_user_id, status, owned_at, promoted_at)
+                    SELECT id, content_id, owner_user_id, status, owned_at, promoted_at FROM content_ownership;
+                DROP TABLE content_ownership;
+                ALTER TABLE content_ownership_new RENAME TO content_ownership;
+            """)
 
     @contextmanager
     def connection(self) -> Generator[sqlite3.Connection, None, None]:
@@ -429,20 +477,39 @@ class Database:
 
     # --- Quota ---
 
-    def get_quota_summary(self, user_id: int) -> QuotaSummary | None:
+    def get_quota_summary(
+        self, user_id: int, include_splits: bool = False, plank_mode: str = "adrift",
+    ) -> QuotaSummary | None:
         with self.connection() as conn:
             user_row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
             if not user_row:
                 return None
 
+            # In anchored mode, plank content counts against quota
+            if plank_mode == "anchored":
+                status_filter = "co.status IN ('owned', 'plank')"
+            else:
+                status_filter = "co.status = 'owned'"
+
             usage_row = conn.execute(
-                """SELECT COALESCE(SUM(c.size_bytes), 0) as used_bytes,
+                f"""SELECT COALESCE(SUM(c.size_bytes), 0) as used_bytes,
                           COUNT(c.id) as owned_count
                    FROM content c
                    JOIN content_ownership co ON co.content_id = c.id
-                   WHERE co.owner_user_id = ? AND co.status = 'owned' AND c.status = 'active'""",
+                   WHERE co.owner_user_id = ? AND {status_filter} AND c.status = 'active'""",
                 (user_id,),
             ).fetchone()
+
+            split_bytes = 0
+            if include_splits:
+                split_row = conn.execute(
+                    """SELECT COALESCE(SUM(qs.share_bytes), 0) as total
+                       FROM quota_splits qs
+                       JOIN content c ON c.id = qs.content_id
+                       WHERE qs.user_id = ? AND c.status = 'active'""",
+                    (user_id,),
+                ).fetchone()
+                split_bytes = split_row["total"]
 
             return QuotaSummary(
                 user_id=user_id,
@@ -450,6 +517,7 @@ class Database:
                 bonus_bytes=user_row["bonus_bytes"],
                 used_bytes=usage_row["used_bytes"],
                 owned_count=usage_row["owned_count"],
+                split_bytes=split_bytes,
             )
 
     def add_quota_transaction(self, user_id: int, change_bytes: int, reason: str) -> None:
@@ -509,6 +577,13 @@ class Database:
                    WHERE co.id IS NULL AND c.status = 'active'"""
             ).fetchone()["unowned"]
 
+            plank = conn.execute(
+                """SELECT COALESCE(SUM(c.size_bytes), 0) as plank_bytes,
+                          COUNT(c.id) as plank_count
+                   FROM content c JOIN content_ownership co ON co.content_id = c.id
+                   WHERE co.status = 'plank' AND c.status = 'active'"""
+            ).fetchone()
+
             user_count = conn.execute("SELECT COUNT(*) as cnt FROM users").fetchone()["cnt"]
             content_count = conn.execute(
                 "SELECT COUNT(*) as cnt FROM content WHERE status = 'active'"
@@ -519,6 +594,8 @@ class Database:
                 "owned_bytes": owned,
                 "promoted_bytes": promoted,
                 "unowned_bytes": unowned,
+                "plank_bytes": plank["plank_bytes"],
+                "plank_count": plank["plank_count"],
                 "user_count": user_count,
                 "content_count": content_count,
             }
@@ -535,6 +612,263 @@ class Database:
             ).fetchall()
             return [_row_to_content(r) for r in rows]
 
+    def get_total_promoted_bytes(self) -> int:
+        with self.connection() as conn:
+            row = conn.execute(
+                """SELECT COALESCE(SUM(c.size_bytes), 0) as total
+                   FROM content c JOIN content_ownership co ON co.content_id = c.id
+                   WHERE co.status = 'promoted' AND c.status = 'active'"""
+            ).fetchone()
+            return row["total"]
+
+    # --- Settings ---
+
+    def get_setting(self, key: str, default: str = "") -> str:
+        with self.connection() as conn:
+            row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+            return row["value"] if row else default
+
+    def set_setting(self, key: str, value: str) -> None:
+        with self.connection() as conn:
+            conn.execute(
+                """INSERT INTO settings (key, value, updated_at)
+                   VALUES (?, ?, ?)
+                   ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at""",
+                (key, value, _now()),
+            )
+
+    def get_all_settings(self) -> dict[str, str]:
+        with self.connection() as conn:
+            rows = conn.execute("SELECT key, value FROM settings").fetchall()
+            return {row["key"]: row["value"] for row in rows}
+
+    # --- Quota Splits ---
+
+    def upsert_quota_split(self, content_id: int, user_id: int, share_bytes: int) -> None:
+        with self.connection() as conn:
+            conn.execute(
+                """INSERT INTO quota_splits (content_id, user_id, share_bytes, created_at)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(content_id, user_id) DO UPDATE SET share_bytes = excluded.share_bytes""",
+                (content_id, user_id, share_bytes, _now()),
+            )
+
+    def get_user_split_total(self, user_id: int) -> int:
+        with self.connection() as conn:
+            row = conn.execute(
+                """SELECT COALESCE(SUM(qs.share_bytes), 0) as total
+                   FROM quota_splits qs
+                   JOIN content c ON c.id = qs.content_id
+                   WHERE qs.user_id = ? AND c.status = 'active'""",
+                (user_id,),
+            ).fetchone()
+            return row["total"]
+
+    def recalculate_splits(self, content_id: int, viewer_ids: list[int], total_bytes: int) -> None:
+        if not viewer_ids:
+            return
+        share = total_bytes // len(viewer_ids)
+        with self.connection() as conn:
+            # Remove splits for users no longer in viewer list
+            conn.execute(
+                f"DELETE FROM quota_splits WHERE content_id = ? AND user_id NOT IN ({','.join('?' * len(viewer_ids))})",
+                [content_id, *viewer_ids],
+            )
+            for uid in viewer_ids:
+                conn.execute(
+                    """INSERT INTO quota_splits (content_id, user_id, share_bytes, created_at)
+                       VALUES (?, ?, ?, ?)
+                       ON CONFLICT(content_id, user_id) DO UPDATE SET share_bytes = excluded.share_bytes""",
+                    (content_id, uid, share, _now()),
+                )
+
+    def delete_splits_for_content(self, content_id: int) -> None:
+        with self.connection() as conn:
+            conn.execute("DELETE FROM quota_splits WHERE content_id = ?", (content_id,))
+
+    def get_all_completed_viewer_ids(self, content_id: int) -> list[int]:
+        with self.connection() as conn:
+            rows = conn.execute(
+                "SELECT DISTINCT user_id FROM watch_events WHERE content_id = ? AND completed = 1",
+                (content_id,),
+            ).fetchall()
+            return [row["user_id"] for row in rows]
+
+    # --- User Auto-Scuttle ---
+
+    def update_user_auto_scuttle(self, user_id: int, days: int) -> User | None:
+        with self.connection() as conn:
+            conn.execute("UPDATE users SET auto_scuttle_days = ? WHERE id = ?", (days, user_id))
+            row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+            return _row_to_user(row) if row else None
+
+    def update_user_onboarded(self, user_id: int) -> None:
+        with self.connection() as conn:
+            conn.execute("UPDATE users SET onboarded = 1 WHERE id = ?", (user_id,))
+
+    def get_users_with_auto_scuttle(self) -> list[User]:
+        with self.connection() as conn:
+            rows = conn.execute(
+                "SELECT * FROM users WHERE auto_scuttle_days > 0"
+            ).fetchall()
+            return [_row_to_user(r) for r in rows]
+
+    # --- Plank ---
+
+    def plank_content(self, content_id: int) -> None:
+        """Move content to the plank (pending deletion)."""
+        now = _now()
+        with self.connection() as conn:
+            conn.execute(
+                "UPDATE content_ownership SET status = 'plank', plank_started_at = ? WHERE content_id = ?",
+                (now, content_id),
+            )
+
+    def rescue_content(self, content_id: int) -> None:
+        """Rescue content from the plank back to owned status."""
+        with self.connection() as conn:
+            conn.execute(
+                "UPDATE content_ownership SET status = 'owned', plank_started_at = NULL WHERE content_id = ?",
+                (content_id,),
+            )
+
+    def adopt_content(self, content_id: int, new_owner_id: int) -> None:
+        """Transfer ownership of planked content to a new user."""
+        with self.connection() as conn:
+            conn.execute(
+                "UPDATE content_ownership SET owner_user_id = ?, status = 'owned', plank_started_at = NULL WHERE content_id = ?",
+                (new_owner_id, content_id),
+            )
+
+    def get_plank_content(self) -> list[OwnedContent]:
+        """Get all content currently on the plank."""
+        with self.connection() as conn:
+            rows = conn.execute(
+                """SELECT c.*, co.id as co_id, co.content_id as co_content_id,
+                          co.owner_user_id, co.status as co_status,
+                          co.owned_at, co.promoted_at, co.plank_started_at,
+                          (SELECT COUNT(DISTINCT w.user_id)
+                           FROM watch_events w
+                           WHERE w.content_id = c.id AND w.completed = 1
+                             AND w.user_id != co.owner_user_id) as unique_viewers
+                   FROM content c
+                   JOIN content_ownership co ON co.content_id = c.id
+                   WHERE co.status = 'plank' AND c.status = 'active'
+                   ORDER BY co.plank_started_at ASC""",
+            ).fetchall()
+            return [
+                OwnedContent(
+                    content=_row_to_content(r),
+                    ownership=ContentOwnership(
+                        id=r["co_id"],
+                        content_id=r["co_content_id"],
+                        owner_user_id=r["owner_user_id"],
+                        status=r["co_status"],
+                        owned_at=r["owned_at"],
+                        promoted_at=r["promoted_at"],
+                        plank_started_at=r["plank_started_at"],
+                    ),
+                    unique_viewers=r["unique_viewers"],
+                )
+                for r in rows
+            ]
+
+    def get_expired_plank_content(self, plank_days: int) -> list[OwnedContent]:
+        """Get plank content where the grace period has expired."""
+        with self.connection() as conn:
+            rows = conn.execute(
+                """SELECT c.*, co.id as co_id, co.content_id as co_content_id,
+                          co.owner_user_id, co.status as co_status,
+                          co.owned_at, co.promoted_at, co.plank_started_at,
+                          (SELECT COUNT(DISTINCT w.user_id)
+                           FROM watch_events w
+                           WHERE w.content_id = c.id AND w.completed = 1
+                             AND w.user_id != co.owner_user_id) as unique_viewers
+                   FROM content c
+                   JOIN content_ownership co ON co.content_id = c.id
+                   WHERE co.status = 'plank' AND c.status = 'active'
+                     AND julianday('now') - julianday(co.plank_started_at) > ?""",
+                (plank_days,),
+            ).fetchall()
+            return [
+                OwnedContent(
+                    content=_row_to_content(r),
+                    ownership=ContentOwnership(
+                        id=r["co_id"],
+                        content_id=r["co_content_id"],
+                        owner_user_id=r["owner_user_id"],
+                        status=r["co_status"],
+                        owned_at=r["owned_at"],
+                        promoted_at=r["promoted_at"],
+                        plank_started_at=r["plank_started_at"],
+                    ),
+                    unique_viewers=r["unique_viewers"],
+                )
+                for r in rows
+            ]
+
+    def get_user_plank_content(self, user_id: int) -> list[OwnedContent]:
+        """Get a specific user's planked content."""
+        with self.connection() as conn:
+            rows = conn.execute(
+                """SELECT c.*, co.id as co_id, co.content_id as co_content_id,
+                          co.owner_user_id, co.status as co_status,
+                          co.owned_at, co.promoted_at, co.plank_started_at,
+                          (SELECT COUNT(DISTINCT w.user_id)
+                           FROM watch_events w
+                           WHERE w.content_id = c.id AND w.completed = 1
+                             AND w.user_id != co.owner_user_id) as unique_viewers
+                   FROM content c
+                   JOIN content_ownership co ON co.content_id = c.id
+                   WHERE co.status = 'plank' AND co.owner_user_id = ? AND c.status = 'active'
+                   ORDER BY co.plank_started_at ASC""",
+                (user_id,),
+            ).fetchall()
+            return [
+                OwnedContent(
+                    content=_row_to_content(r),
+                    ownership=ContentOwnership(
+                        id=r["co_id"],
+                        content_id=r["co_content_id"],
+                        owner_user_id=r["owner_user_id"],
+                        status=r["co_status"],
+                        owned_at=r["owned_at"],
+                        promoted_at=r["promoted_at"],
+                        plank_started_at=r["plank_started_at"],
+                    ),
+                    unique_viewers=r["unique_viewers"],
+                )
+                for r in rows
+            ]
+
+    def get_retention_eligible_content(
+        self, user_id: int, scuttle_days: int, min_retention_days: int
+    ) -> list[Content]:
+        """Get content owned by user that is eligible for auto-scuttle.
+
+        Must meet ALL conditions:
+        - User owns it (status = 'owned')
+        - Content is active
+        - User completed watching it
+        - Last watch was > scuttle_days ago
+        - Content was added > min_retention_days ago
+        """
+        with self.connection() as conn:
+            rows = conn.execute(
+                """SELECT c.* FROM content c
+                   JOIN content_ownership co ON co.content_id = c.id
+                   JOIN watch_events w ON w.content_id = c.id AND w.user_id = ?
+                   WHERE co.owner_user_id = ?
+                     AND co.status = 'owned'
+                     AND c.status = 'active'
+                     AND w.completed = 1
+                     AND julianday('now') - julianday(w.watched_at) > ?
+                     AND julianday('now') - julianday(c.added_at) > ?
+                   GROUP BY c.id""",
+                (user_id, user_id, scuttle_days, min_retention_days),
+            ).fetchall()
+            return [_row_to_content(r) for r in rows]
+
 
 # --- Row mappers ---
 
@@ -548,6 +882,8 @@ def _row_to_user(row: sqlite3.Row) -> User:
         bonus_bytes=row["bonus_bytes"],
         is_admin=bool(row["is_admin"]),
         created_at=row["created_at"],
+        auto_scuttle_days=row["auto_scuttle_days"] or 0,
+        onboarded=bool(row["onboarded"]),
     )
 
 
@@ -567,6 +903,7 @@ def _row_to_content(row: sqlite3.Row) -> Content:
 
 
 def _row_to_ownership(row: sqlite3.Row) -> ContentOwnership:
+    keys = row.keys() if hasattr(row, "keys") else []
     return ContentOwnership(
         id=row["id"],
         content_id=row["content_id"],
@@ -574,6 +911,7 @@ def _row_to_ownership(row: sqlite3.Row) -> ContentOwnership:
         status=row["status"],
         owned_at=row["owned_at"],
         promoted_at=row["promoted_at"],
+        plank_started_at=row["plank_started_at"] if "plank_started_at" in keys else None,
     )
 
 

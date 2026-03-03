@@ -7,7 +7,9 @@ import logging
 
 from treasurr.config import Config
 from treasurr.db import Database
+from treasurr.engine.plank import run_plank_checks
 from treasurr.engine.promotion import run_promotions
+from treasurr.engine.retention import run_retention_checks
 from treasurr.sync.request_sync import sync_requests
 from treasurr.sync.size_sync import sync_arr_ids, sync_sizes
 from treasurr.sync.watch_sync import sync_users_from_tautulli, sync_watch_history
@@ -54,6 +56,18 @@ async def run_full_sync(db: Database, config: Config) -> dict:
     except Exception as e:
         logger.error("Promotion engine failed: %s", e)
         results["promotions_error"] = str(e)
+
+    try:
+        results["retention"] = await run_retention_checks(db, config)
+    except Exception as e:
+        logger.error("Retention checks failed: %s", e)
+        results["retention_error"] = str(e)
+
+    try:
+        results["plank"] = await run_plank_checks(db, config)
+    except Exception as e:
+        logger.error("Plank checks failed: %s", e)
+        results["plank_error"] = str(e)
 
     # Cleanup expired sessions
     try:

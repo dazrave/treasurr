@@ -3,20 +3,24 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 
 from treasurr.config import Config
 from treasurr.db import Database
+from treasurr.models import ScuttleResult
 from treasurr.sync.clients import RadarrClient, SonarrClient
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class ScuttleResult:
-    success: bool
-    message: str
-    freed_bytes: int = 0
+def _get_plank_days(db: Database, config: Config) -> int:
+    """Read plank_days from settings, falling back to config."""
+    raw = db.get_setting("plank_days", "")
+    if raw:
+        try:
+            return int(raw)
+        except ValueError:
+            pass
+    return config.quotas.plank_days
 
 
 async def scuttle_content(
@@ -27,12 +31,8 @@ async def scuttle_content(
 ) -> ScuttleResult:
     """Delete content owned by the user (scuttle = sink the ship).
 
-    Steps:
-    1. Validate ownership
-    2. Check deletion rate limit
-    3. Unmonitor in Sonarr/Radarr
-    4. Delete files via arr API
-    5. Update status and log
+    If plank_days > 0, content enters the plank (grace period) instead of
+    being deleted immediately. If plank_days == 0, instant delete (legacy).
     """
     content = db.get_content(content_id)
     if content is None:
@@ -48,8 +48,14 @@ async def scuttle_content(
     if ownership.owner_user_id != user_id:
         return ScuttleResult(success=False, message="You don't own this content")
 
-    if ownership.status != "owned":
+    if ownership.status == "promoted":
         return ScuttleResult(success=False, message="Content is already promoted — it's shared plunder now")
+
+    if ownership.status == "plank":
+        return ScuttleResult(success=False, message="Content is already walking the plank")
+
+    if ownership.status != "owned":
+        return ScuttleResult(success=False, message="Content cannot be scuttled in its current state")
 
     # Rate limit check
     recent = db.count_recent_deletions(user_id)
@@ -58,6 +64,36 @@ async def scuttle_content(
             success=False,
             message=f"Rate limit reached ({config.safety.max_deletions_per_hour} deletions/hour). Try again later.",
         )
+
+    # Check if plank is enabled
+    plank_days = _get_plank_days(db, config)
+    if plank_days > 0:
+        db.plank_content(content_id)
+        logger.info(
+            "Planked '%s' for %d days (user %d)", content.title, plank_days, user_id,
+        )
+        return ScuttleResult(
+            success=True,
+            message=f"'{content.title}' is walking the plank! The crew has {plank_days} days to save it.",
+            walked_plank=True,
+        )
+
+    # Instant delete (plank_days == 0)
+    return await _execute_deletion(db, config, content_id, user_id, content)
+
+
+async def _execute_deletion(
+    db: Database,
+    config: Config,
+    content_id: int,
+    user_id: int,
+    content=None,
+) -> ScuttleResult:
+    """Actually delete content via arr APIs and mark as deleted."""
+    if content is None:
+        content = db.get_content(content_id)
+        if content is None:
+            return ScuttleResult(success=False, message="Content not found")
 
     # Mark as deleting
     db.update_content_status(content_id, "deleting")
@@ -80,11 +116,9 @@ async def scuttle_content(
             await radarr.delete(content.radarr_id, delete_files=True)
 
         else:
-            # No arr ID — can't delete files, but mark as deleted anyway
             logger.warning("No arr ID for content '%s' — marking deleted without file removal", content.title)
 
     except Exception as e:
-        # Revert status on failure
         db.update_content_status(content_id, "active")
         logger.error("Failed to delete content '%s': %s", content.title, e)
         return ScuttleResult(success=False, message=f"Deletion failed: {e}")
@@ -92,6 +126,7 @@ async def scuttle_content(
     # Success — update records
     db.update_content_status(content_id, "deleted")
     db.release_content(content_id)
+    db.delete_splits_for_content(content_id)
     db.log_deletion(content_id, user_id, content.title, content.size_bytes)
 
     logger.info("Scuttled '%s' (%d bytes freed for user %d)", content.title, content.size_bytes, user_id)

@@ -37,7 +37,7 @@ def create_app(config: Config) -> FastAPI:
     app = FastAPI(
         title="Treasurr",
         description="Your treasure. Your crew. Your plunder.",
-        version="0.1.0",
+        version="0.2.0",
         lifespan=lifespan,
     )
 

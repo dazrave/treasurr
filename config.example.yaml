@@ -22,6 +22,23 @@ quotas:
   promotion_threshold: 2           # Unique viewers to promote
   promotion_exclude_requester: true
   watch_completion_percent: 80
+
+  # Promotion mode: "full_plunder" (shared content free for all) or
+  # "split_the_loot" (shared content split equally between viewers)
+  promotion_mode: "full_plunder"
+
+  # Max bytes for the shared plunder pool. 0 = unlimited.
+  # When this cap is hit, no new content will be promoted until space is freed.
+  shared_plunder_max_bytes: 0
+
+  # Minimum days content must exist before auto-delete can remove it.
+  # Gives the crew a chance to watch before it vanishes. 0 = no minimum.
+  min_retention_days: 0
+
+  # How sizes are shown to users: "exact" (23.4 GB), "round_up" (24 GB),
+  # or "percentage" (12% of your space)
+  display_mode: "exact"
+
   tiers:
     - name: "Deckhand"
       bytes: 536870912000          # 500 GB

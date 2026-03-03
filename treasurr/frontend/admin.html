@@ -235,8 +235,84 @@ tr:hover { background: var(--surface-2); }
     <div class="stat-card"><div class="stat-label">Owned (Quota)</div><div class="stat-value" id="stat-owned">--</div></div>
     <div class="stat-card"><div class="stat-label">Shared Plunder</div><div class="stat-value" id="stat-promoted">--</div></div>
     <div class="stat-card"><div class="stat-label">Unowned</div><div class="stat-value" id="stat-unowned">--</div></div>
+    <div class="stat-card"><div class="stat-label">On the Plank</div><div class="stat-value" id="stat-plank">--</div><div class="stat-sub" id="stat-plank-count"></div></div>
     <div class="stat-card"><div class="stat-label">Crew Members</div><div class="stat-value" id="stat-users">--</div></div>
     <div class="stat-card"><div class="stat-label">Content Items</div><div class="stat-value" id="stat-content">--</div></div>
+  </div>
+
+  <!-- Ship Settings -->
+  <div class="section" id="settings-section">
+    <div class="section-header">Ship Settings</div>
+    <div style="padding: 20px;">
+      <!-- Plunder Cap Warning Banner (shown when >90% full) -->
+      <div id="cap-warning" style="display:none; background:#d29922; color:#000; padding:12px 16px; border-radius:8px; margin-bottom:16px; font-weight:600;">
+        &#9888; Shared space is almost full! No new content will be promoted until space is freed.
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <!-- Promotion Mode -->
+        <div>
+          <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;">How sharing works</label>
+          <select id="set-promotion-mode" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:14px;">
+            <option value="full_plunder">Full Plunder — shared content uses no one's space</option>
+            <option value="split_the_loot">Split the Loot — shared content split between all viewers</option>
+          </select>
+        </div>
+
+        <!-- Shared Space Cap -->
+        <div>
+          <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;">Shared space limit (GB, 0 = no limit)</label>
+          <input type="number" id="set-plunder-cap" step="1" min="0" value="0" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-family:var(--font-mono); font-size:14px;">
+        </div>
+
+        <!-- Min Retention -->
+        <div>
+          <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;">Minimum days before auto-delete</label>
+          <input type="number" id="set-min-retention" step="1" min="0" value="0" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-family:var(--font-mono); font-size:14px;">
+          <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">Gives the crew time to watch before content can be auto-removed</div>
+        </div>
+
+        <!-- Display Mode -->
+        <div>
+          <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;">How sizes are shown to users</label>
+          <select id="set-display-mode" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:14px;">
+            <option value="exact">Exact sizes (23.4 GB)</option>
+            <option value="round_up">Rounded up (24 GB)</option>
+            <option value="percentage">Percentage of space (12% of your space)</option>
+          </select>
+        </div>
+
+        <!-- Plank Mode -->
+        <div>
+          <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;">Walk the Plank mode</label>
+          <select id="set-plank-mode" onchange="toggleRescueAction()" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:14px;">
+            <option value="anchored">Anchored &mdash; stays on owner's quota, only owner can rescue</option>
+            <option value="adrift">Adrift &mdash; off owner's quota, anyone can rescue by watching</option>
+          </select>
+        </div>
+
+        <!-- Plank Days -->
+        <div>
+          <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;">Plank grace period (days, 0 = instant delete)</label>
+          <input type="number" id="set-plank-days" step="1" min="0" value="14" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-family:var(--font-mono); font-size:14px;">
+          <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">How long content stays on the plank before it's permanently deleted</div>
+        </div>
+
+        <!-- Rescue Action (only visible when adrift) -->
+        <div id="rescue-action-row">
+          <label style="display:block; margin-bottom:4px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;">What happens when someone rescues content</label>
+          <select id="set-rescue-action" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:14px;">
+            <option value="promote">Promote to shared plunder</option>
+            <option value="adopt">Adopt &mdash; moves to rescuer's quota</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-top:16px; text-align:right;">
+        <button class="btn btn-gold" onclick="saveSettings()">Save Settings</button>
+      </div>
+      <div id="settings-msg" style="font-size:12px; color:var(--green); margin-top:8px; text-align:right;"></div>
+    </div>
   </div>
 
   <!-- Crew Table -->
@@ -281,7 +357,7 @@ async function checkAdmin() {
 }
 
 async function loadAdmin() {
-  await Promise.all([loadStats(), loadCrew()]);
+  await Promise.all([loadStats(), loadCrew(), loadSettings()]);
 }
 
 async function loadStats() {
@@ -292,8 +368,16 @@ async function loadStats() {
     document.getElementById('stat-owned').textContent = d.owned_display;
     document.getElementById('stat-promoted').textContent = d.promoted_display;
     document.getElementById('stat-unowned').textContent = d.unowned_display;
+    document.getElementById('stat-plank').textContent = d.plank_display || '0 B';
+    document.getElementById('stat-plank-count').textContent = (d.plank_count || 0) + ' items';
     document.getElementById('stat-users').textContent = d.user_count;
     document.getElementById('stat-content').textContent = d.content_count;
+    if (d.plunder_cap_bytes !== undefined) {
+      checkCapWarning({
+        plunder_cap_bytes: d.plunder_cap_bytes,
+        plunder_used_bytes: d.plunder_used_bytes,
+      });
+    }
   } catch { /* silent */ }
 }
 
@@ -378,6 +462,70 @@ async function triggerSync() {
   } catch (e) {
     msg.textContent = 'Sync failed: ' + e.message;
   }
+}
+
+async function loadSettings() {
+  try {
+    const resp = await fetch(API + '/api/admin/settings');
+    if (!resp.ok) return;
+    const s = await resp.json();
+    document.getElementById('set-promotion-mode').value = s.promotion_mode || 'full_plunder';
+    document.getElementById('set-plunder-cap').value = Math.round((s.shared_plunder_max_bytes || 0) / 1073741824);
+    document.getElementById('set-min-retention').value = s.min_retention_days || 0;
+    document.getElementById('set-display-mode').value = s.display_mode || 'exact';
+    document.getElementById('set-plank-mode').value = s.plank_mode || 'adrift';
+    document.getElementById('set-plank-days').value = s.plank_days !== undefined ? s.plank_days : 14;
+    document.getElementById('set-rescue-action').value = s.plank_rescue_action || 'promote';
+    toggleRescueAction();
+    checkCapWarning(s);
+  } catch { /* silent */ }
+}
+
+function checkCapWarning(settings) {
+  const warning = document.getElementById('cap-warning');
+  if (settings.plunder_cap_bytes > 0 && settings.plunder_used_bytes > 0) {
+    const pct = (settings.plunder_used_bytes / settings.plunder_cap_bytes) * 100;
+    warning.style.display = pct >= 90 ? 'block' : 'none';
+  } else {
+    warning.style.display = 'none';
+  }
+}
+
+async function saveSettings() {
+  const msg = document.getElementById('settings-msg');
+  const capGb = parseInt(document.getElementById('set-plunder-cap').value) || 0;
+  try {
+    const resp = await fetch(API + '/api/admin/settings', {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        promotion_mode: document.getElementById('set-promotion-mode').value,
+        shared_plunder_max_bytes: capGb * 1073741824,
+        min_retention_days: parseInt(document.getElementById('set-min-retention').value) || 0,
+        display_mode: document.getElementById('set-display-mode').value,
+        plank_mode: document.getElementById('set-plank-mode').value,
+        plank_days: parseInt(document.getElementById('set-plank-days').value) || 0,
+        plank_rescue_action: document.getElementById('set-rescue-action').value,
+      }),
+    });
+    if (resp.ok) {
+      msg.textContent = 'Settings saved!';
+      msg.style.color = 'var(--green)';
+      setTimeout(function() { msg.textContent = ''; }, 4000);
+    } else {
+      const d = await resp.json();
+      msg.textContent = 'Save failed: ' + (d.detail || 'Unknown error');
+      msg.style.color = 'var(--red)';
+    }
+  } catch (e) {
+    msg.textContent = 'Save failed: ' + e.message;
+    msg.style.color = 'var(--red)';
+  }
+}
+
+function toggleRescueAction() {
+  const mode = document.getElementById('set-plank-mode').value;
+  document.getElementById('rescue-action-row').style.display = mode === 'adrift' ? 'block' : 'none';
 }
 
 function esc(s) {
