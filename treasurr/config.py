@@ -43,6 +43,12 @@ class QuotaConfig:
 
 
 @dataclass(frozen=True)
+class PlexConfig:
+    url: str = ""
+    token: str = ""
+
+
+@dataclass(frozen=True)
 class SafetyConfig:
     max_deletions_per_hour: int = 10
 
@@ -60,6 +66,7 @@ class Config:
     overseerr: ApiConfig = field(default_factory=lambda: ApiConfig(url="", key=""))
     sonarr: ApiConfig = field(default_factory=lambda: ApiConfig(url="", key=""))
     radarr: ApiConfig = field(default_factory=lambda: ApiConfig(url="", key=""))
+    plex: PlexConfig = field(default_factory=PlexConfig)
     quotas: QuotaConfig = field(default_factory=QuotaConfig)
     safety: SafetyConfig = field(default_factory=SafetyConfig)
 
@@ -74,6 +81,7 @@ def load_config(path: str | Path = "config.yaml") -> Config:
 
     general = raw.get("general", {})
     apis = raw.get("apis", {})
+    plex_raw = raw.get("plex", {})
     quotas_raw = raw.get("quotas", {})
     safety_raw = raw.get("safety", {})
 
@@ -106,6 +114,10 @@ def load_config(path: str | Path = "config.yaml") -> Config:
         radarr=ApiConfig(
             url=apis.get("radarr", {}).get("url", ""),
             key=os.environ.get("TREASURR_RADARR_KEY", ""),
+        ),
+        plex=PlexConfig(
+            url=plex_raw.get("url", ""),
+            token=os.environ.get("TREASURR_PLEX_TOKEN", plex_raw.get("token", "")),
         ),
         quotas=QuotaConfig(
             default_bytes=quotas_raw.get("default_bytes", 536_870_912_000),

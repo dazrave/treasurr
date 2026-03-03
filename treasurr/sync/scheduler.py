@@ -13,6 +13,7 @@ from treasurr.engine.retention import run_retention_checks
 from treasurr.sync.request_sync import sync_requests
 from treasurr.sync.queue_sync import sync_download_queue
 from treasurr.sync.size_sync import sync_arr_ids, sync_disk_space, sync_posters, sync_seasons, sync_sizes
+from treasurr.sync.plank_collection import sync_plank_collection
 from treasurr.sync.watch_sync import sync_users_from_tautulli, sync_watch_history
 
 logger = logging.getLogger(__name__)
@@ -93,6 +94,12 @@ async def run_full_sync(db: Database, config: Config) -> dict:
     except Exception as e:
         logger.error("Plank checks failed: %s", e)
         results["plank_error"] = str(e)
+
+    try:
+        results["plank_collection"] = await sync_plank_collection(db, config)
+    except Exception as e:
+        logger.error("Plank collection sync failed: %s", e)
+        results["plank_collection_error"] = str(e)
 
     # Cleanup expired sessions
     try:

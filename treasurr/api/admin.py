@@ -166,7 +166,7 @@ async def update_settings(request: Request) -> dict:
     db = _get_db(request)
     body = await request.json()
 
-    valid_promotion_modes = ("full_plunder", "split_the_loot")
+    valid_promotion_modes = ("full_plunder", "split_the_loot", "disabled")
     valid_display_modes = ("exact", "round_up", "percentage")
 
     if "promotion_mode" in body:
@@ -203,7 +203,7 @@ async def update_settings(request: Request) -> dict:
             raise HTTPException(status_code=400, detail="plank_days cannot be negative")
         db.set_setting("plank_days", str(val))
 
-    valid_rescue_actions = ("promote", "adopt")
+    valid_rescue_actions = ("promote", "adopt", "disabled")
     if "plank_rescue_action" in body:
         if body["plank_rescue_action"] not in valid_rescue_actions:
             raise HTTPException(status_code=400, detail=f"Invalid plank_rescue_action. Must be one of: {valid_rescue_actions}")
@@ -264,6 +264,7 @@ async def get_stats(request: Request) -> dict:
             user_storage.append({
                 "user_id": user.id,
                 "username": user.plex_username,
+                "email": user.email,
                 "used_bytes": used,
                 "used_display": format_bytes(used),
                 "quota_bytes": user.quota_bytes,

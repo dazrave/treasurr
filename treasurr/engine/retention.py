@@ -71,13 +71,14 @@ async def run_retention_checks(db: Database, config: Config) -> int:
                     result.message,
                 )
 
-    # Global stale content auto-plank
+    # Global stale content auto-plank (includes unclaimed content)
     stale_days = _get_stale_content_days(db, config)
     if stale_days > 0:
         stale_items = db.get_stale_content(stale_days)
         for content in stale_items:
             ownership = db.get_ownership(content.id)
             if ownership is None:
+                # Unclaimed stale content - skip (no owner to scuttle for)
                 continue
             result = await scuttle_content(
                 db=db,

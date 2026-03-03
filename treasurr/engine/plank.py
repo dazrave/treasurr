@@ -44,7 +44,8 @@ async def run_plank_checks(db: Database, config: Config) -> dict:
     plank_mode = _get_plank_mode(db, config)
 
     # 1. In adrift mode: check for content that's been watched → auto-rescue
-    if plank_mode == "adrift":
+    rescue_action = _get_rescue_action(db, config)
+    if plank_mode == "adrift" and rescue_action != "disabled":
         plank_items = db.get_plank_content()
         for item in plank_items:
             viewers = db.get_all_completed_viewer_ids(item.content.id)
@@ -121,6 +122,12 @@ async def rescue_content(
         )
 
     rescue_action = _get_rescue_action(db, config)
+
+    if rescue_action == "disabled":
+        return RescueResult(
+            success=False,
+            message="Rescue is disabled. Planked content will be permanently deleted when the grace period ends.",
+        )
 
     if rescue_action == "adopt":
         db.adopt_content(content_id, user_id)

@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 
-from treasurr.config import ApiConfig
+from treasurr.config import ApiConfig, PlexConfig
 
 logger = logging.getLogger(__name__)
 
@@ -372,3 +372,159 @@ class RadarrClient:
                 path=item.get("path", ""),
             )
         return None
+
+
+class PlexClient:
+    """Client for Plex Media Server API - collection management."""
+
+    def __init__(self, config: PlexConfig) -> None:
+        self._base_url = config.url.rstrip("/")
+        self._token = config.token
+
+    def _headers(self) -> dict:
+        return {
+            "X-Plex-Token": self._token,
+            "Accept": "application/json",
+        }
+
+    async def _get(self, path: str, **params: Any) -> Any:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(
+                f"{self._base_url}{path}",
+                headers=self._headers(),
+                params=params,
+            )
+            if resp.status_code != 200:
+                raise ApiError("plex", f"GET {path} failed", resp.status_code)
+            return resp.json()
+
+    async def _put(self, path: str, **params: Any) -> None:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.put(
+                f"{self._base_url}{path}",
+                headers=self._headers(),
+                params=params,
+            )
+            if resp.status_code not in (200, 201):
+                raise ApiError("plex", f"PUT {path} failed", resp.status_code)
+
+    async def _post(self, path: str, **params: Any) -> Any:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{self._base_url}{path}",
+                headers=self._headers(),
+                params=params,
+            )
+            if resp.status_code not in (200, 201):
+                raise ApiError("plex", f"POST {path} failed", resp.status_code)
+            if resp.content:
+                return resp.json()
+            return None
+
+    async def _delete(self, path: str) -> None:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.delete(
+                f"{self._base_url}{path}",
+                headers=self._headers(),
+            )
+            if resp.status_code not in (200, 204):
+                raise ApiError("plex", f"DELETE {path} failed", resp.status_code)
+
+    async def get_libraries(self) -> list[dict]:
+        """Get all Plex libraries."""
+        data = await self._get("/library/sections")
+        return [
+            {
+                "key": lib["key"],
+                "title": lib.get("title", ""),
+                "type": lib.get("type", ""),
+            }
+            for lib in data.get("MediaContainer", {}).get("Directory", [])
+        ]
+
+    async def get_collections(self, library_key: str) -> list[dict]:
+        """Get all collections in a library."""
+        data = await self._get(f"/library/sections/{library_key}/collections")
+        return [
+            {
+                "ratingKey": c["ratingKey"],
+                "title": c.get("title", ""),
+                "childCount": c.get("childCount", 0),
+            }
+            for c in data.get("MediaContainer", {}).get("Metadata", [])
+        ]
+
+    async def create_collection(self, library_key: str, title: str, rating_keys: list[str]) -> str | None:
+        """Create a collection with the given items. Returns the collection ratingKey."""
+        if not rating_keys:
+            return None
+        machine_id = await self._get_machine_id()
+        uri = f"server://{machine_id}/com.plexapp.plugins.library/library/metadata/{','.join(rating_keys)}"
+        data = await self._post(
+            f"/library/sections/{library_key}/collections",
+            type=18,
+            title=title,
+            smart=0,
+            uri=uri,
+        )
+        metadata = data.get("MediaContainer", {}).get("Metadata", []) if data else []
+        if metadata:
+            return metadata[0].get("ratingKey")
+        return None
+
+    async def update_collection_items(self, collection_key: str, rating_keys: list[str]) -> None:
+        """Replace collection items by removing all then adding new ones."""
+        # Get current items
+        try:
+            data = await self._get(f"/library/collections/{collection_key}/children")
+            current = [m["ratingKey"] for m in data.get("MediaContainer", {}).get("Metadata", [])]
+        except Exception:
+            current = []
+
+        # Remove items not in new set
+        for key in current:
+            if key not in rating_keys:
+                try:
+                    await self._delete(f"/library/collections/{collection_key}/children/{key}")
+                except Exception as e:
+                    logger.warning("Failed to remove item %s from collection: %s", key, e)
+
+        # Add items not in current set
+        if rating_keys:
+            machine_id = await self._get_machine_id()
+            for key in rating_keys:
+                if key not in current:
+                    uri = f"server://{machine_id}/com.plexapp.plugins.library/library/metadata/{key}"
+                    try:
+                        await self._put(f"/library/collections/{collection_key}/items", uri=uri)
+                    except Exception as e:
+                        logger.warning("Failed to add item %s to collection: %s", key, e)
+
+    async def delete_collection(self, collection_key: str) -> None:
+        """Delete a collection."""
+        await self._delete(f"/library/collections/{collection_key}")
+
+    async def find_collection_by_title(self, library_key: str, title: str) -> dict | None:
+        """Find a collection by its title in a library."""
+        collections = await self.get_collections(library_key)
+        for c in collections:
+            if c["title"] == title:
+                return c
+        return None
+
+    async def search_by_title(self, library_key: str, title: str) -> list[dict]:
+        """Search for media by title in a library."""
+        data = await self._get(f"/library/sections/{library_key}/search", query=title)
+        return [
+            {
+                "ratingKey": m["ratingKey"],
+                "title": m.get("title", ""),
+                "type": m.get("type", ""),
+            }
+            for m in data.get("MediaContainer", {}).get("Metadata", [])
+        ]
+
+    async def _get_machine_id(self) -> str:
+        """Get the Plex server machine identifier."""
+        data = await self._get("/")
+        return data.get("MediaContainer", {}).get("machineIdentifier", "")

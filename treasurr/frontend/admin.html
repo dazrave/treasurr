@@ -78,11 +78,6 @@ a:hover { color: var(--gold-bright); }
   white-space: nowrap; z-index: 10; pointer-events: none;
 }
 .storage-segment:hover .storage-tooltip { display: block; }
-.storage-legend {
-  display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 12px;
-}
-.storage-legend-item { display: flex; align-items: center; gap: 6px; }
-.storage-legend-dot { width: 10px; height: 10px; border-radius: 2px; }
 
 /* Stats grid */
 .stats-grid {
@@ -269,7 +264,6 @@ input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
       <span id="storage-total-label" class="mono"></span>
     </div>
     <div class="storage-bar" id="storage-bar"></div>
-    <div class="storage-legend" id="storage-legend"></div>
   </div>
 
   <!-- Stats -->
@@ -329,6 +323,13 @@ input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
                 <div class="radio-option-desc">Shared content cost is split equally between all viewers.</div>
               </div>
             </label>
+            <label class="radio-option" data-value="disabled">
+              <input type="radio" name="promotion_mode" value="disabled">
+              <div>
+                <div class="radio-option-label">Disabled</div>
+                <div class="radio-option-desc">Content always stays on the original requester's quota, even if the whole crew watches it. Nothing gets shared.</div>
+              </div>
+            </label>
           </div>
         </div>
 
@@ -341,21 +342,21 @@ input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
               <input type="radio" name="plank_mode" value="adrift" onchange="toggleRescueAction()">
               <div>
                 <div class="radio-option-label">Adrift</div>
-                <div class="radio-option-desc">Deleted content floats free. Any crew member can rescue it by watching.</div>
+                <div class="radio-option-desc">Deleted content's storage is released from the owner's quota. Any crew member can rescue it by watching.</div>
               </div>
             </label>
             <label class="radio-option" data-value="anchored">
               <input type="radio" name="plank_mode" value="anchored" onchange="toggleRescueAction()">
               <div>
                 <div class="radio-option-label">Anchored</div>
-                <div class="radio-option-desc">Deleted content stays on the owner's quota. Only they can undo the delete.</div>
+                <div class="radio-option-desc">Deleted content stays on the owner's quota until the plank expires. Only the owner can undo.</div>
               </div>
             </label>
             <label class="radio-option" data-value="disabled">
               <input type="radio" name="plank_mode" value="disabled" onchange="toggleRescueAction()">
               <div>
                 <div class="radio-option-label">Disabled</div>
-                <div class="radio-option-desc">No grace period. Content is permanently deleted immediately when scuttled.</div>
+                <div class="radio-option-desc">No grace period. Deleted immediately.</div>
               </div>
             </label>
           </div>
@@ -377,6 +378,13 @@ input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
               <div>
                 <div class="radio-option-label">Adopt</div>
                 <div class="radio-option-desc">Someone can adopt planked content to save it, taking on the storage burden even if they're not ready to watch yet.</div>
+              </div>
+            </label>
+            <label class="radio-option" data-value="disabled">
+              <input type="radio" name="plank_rescue_action" value="disabled">
+              <div>
+                <div class="radio-option-label">Disabled</div>
+                <div class="radio-option-desc">No rescue. Planked content cannot be saved - it will be permanently deleted when the grace period ends.</div>
               </div>
             </label>
           </div>
@@ -414,7 +422,6 @@ input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
         <div id="plank-days-row">
           <span class="setting-label">Plank Grace Period</span>
           <select class="setting-select" id="set-plank-days">
-            <option value="0">0 days (instant delete)</option>
             <option value="3">3 days</option>
             <option value="7">7 days</option>
             <option value="14">14 days</option>
@@ -603,7 +610,6 @@ async function loadStats() {
 function renderStorageBar(stats) {
   const wrapper = document.getElementById('storage-bar-wrapper');
   const bar = document.getElementById('storage-bar');
-  const legend = document.getElementById('storage-legend');
   const totalLabel = document.getElementById('storage-total-label');
 
   const diskTotal = stats.disk_total_bytes || 0;
@@ -620,7 +626,6 @@ function renderStorageBar(stats) {
   const otherUsed = Math.max(0, diskTotal - freeBytes - usedByUsers - promotedBytes - unownedBytes);
 
   bar.innerHTML = '';
-  legend.innerHTML = '';
 
   var segments = [];
 
@@ -630,7 +635,7 @@ function renderStorageBar(stats) {
     var u = userStorage[i];
     if (u.used_bytes <= 0) continue;
     var color = USER_COLORS[i % USER_COLORS.length];
-    segments.push({ label: u.username, bytes: u.used_bytes, display: u.used_display, color: color });
+    segments.push({ label: u.username, bytes: u.used_bytes, display: u.used_display, color: color, email: u.email || '' });
   }
 
   // Shared plunder
@@ -659,14 +664,12 @@ function renderStorageBar(stats) {
     if (pct > 6) { div.textContent = seg.label + ' (' + seg.display + ')'; }
     var tip = document.createElement('div');
     tip.className = 'storage-tooltip';
-    tip.textContent = seg.label + ': ' + seg.display + ' (' + pct.toFixed(1) + '%)';
+    var tipLines = '<strong>' + esc(seg.label) + '</strong>';
+    if (seg.email) { tipLines += '<br>' + esc(seg.email); }
+    tipLines += '<br>' + seg.display + ' (' + pct.toFixed(1) + '%)';
+    tip.innerHTML = tipLines;
     div.appendChild(tip);
     bar.appendChild(div);
-
-    var li = document.createElement('div');
-    li.className = 'storage-legend-item';
-    li.innerHTML = '<div class="storage-legend-dot" style="background:' + seg.color + '"></div><span>' + esc(seg.label) + ' - ' + seg.display + '</span>';
-    legend.appendChild(li);
   }
 }
 

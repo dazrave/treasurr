@@ -38,6 +38,10 @@ async def run_promotions(db: Database, config: Config) -> int:
     """Check all owned content for promotion eligibility. Returns promotion count."""
     threshold = config.quotas.promotion_threshold
     mode = _get_promotion_mode(db, config)
+
+    if mode == "disabled":
+        return 0
+
     candidates = db.get_owned_content_for_promotion()
 
     promoted = 0

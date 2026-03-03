@@ -17,6 +17,11 @@ apis:
     url: "https://radarr.example.com/api/v3"
   # API keys via env: TREASURR_TAUTULLI_KEY, TREASURR_OVERSEERR_KEY, etc.
 
+plex:
+  url: "http://plex:32400"
+  # Token via env: TREASURR_PLEX_TOKEN, or set directly:
+  # token: "your-plex-token"
+
 quotas:
   default_bytes: 536870912000     # 500 GB
   promotion_threshold: 2           # Unique viewers to promote

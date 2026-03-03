@@ -1004,21 +1004,21 @@ class Database:
     # --- Stale Content (Global Auto-Plank) ---
 
     def get_stale_content(self, stale_days: int) -> list[Content]:
-        """Get active owned content where last watch by anyone (or added_at if never watched) exceeds stale_days.
+        """Get active content where last watch by anyone (or added_at if never watched) exceeds stale_days.
 
-        Excludes buried content.
+        Includes owned (not buried) content and unclaimed content (no ownership row).
         """
         with self.connection() as conn:
             rows = conn.execute(
                 """SELECT c.* FROM content c
-                   JOIN content_ownership co ON co.content_id = c.id
+                   LEFT JOIN content_ownership co ON co.content_id = c.id
                    LEFT JOIN (
                        SELECT content_id, MAX(watched_at) as last_watched
                        FROM watch_events WHERE completed = 1
                        GROUP BY content_id
                    ) lw ON lw.content_id = c.id
-                   WHERE co.status = 'owned'
-                     AND c.status = 'active'
+                   WHERE c.status = 'active'
+                     AND (co.status = 'owned' OR co.id IS NULL)
                      AND julianday('now') - julianday(COALESCE(lw.last_watched, c.added_at)) > ?
                    ORDER BY COALESCE(lw.last_watched, c.added_at) ASC""",
                 (stale_days,),
@@ -1059,6 +1059,32 @@ class Database:
                 (user_id, user_id),
             ).fetchall()
             return [_row_to_content(r) for r in rows]
+
+    # --- Unclaimed Content ---
+
+    def get_unclaimed_content(self) -> list[Content]:
+        """Get active content with no ownership record."""
+        with self.connection() as conn:
+            rows = conn.execute(
+                """SELECT c.* FROM content c
+                   LEFT JOIN content_ownership co ON co.content_id = c.id
+                   WHERE co.id IS NULL AND c.status = 'active' AND c.size_bytes > 0
+                   ORDER BY c.title""",
+            ).fetchall()
+            return [_row_to_content(r) for r in rows]
+
+    def claim_content(self, content_id: int, user_id: int) -> ContentOwnership:
+        """Create an ownership record for unclaimed content."""
+        with self.connection() as conn:
+            conn.execute(
+                """INSERT INTO content_ownership (content_id, owner_user_id, owned_at)
+                   VALUES (?, ?, ?)""",
+                (content_id, user_id, _now()),
+            )
+            row = conn.execute(
+                "SELECT * FROM content_ownership WHERE content_id = ?", (content_id,)
+            ).fetchone()
+            return _row_to_ownership(row)
 
     # --- Admin Activity Feed ---
 

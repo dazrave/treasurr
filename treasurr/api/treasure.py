@@ -474,6 +474,67 @@ async def set_retention(request: Request) -> dict:
     }
 
 
+@router.get("/treasure/unclaimed")
+async def get_unclaimed(request: Request) -> dict:
+    """Get content on the server that nobody has claimed."""
+    await _require_user(request)
+    db = _get_db(request)
+    items = db.get_unclaimed_content()
+
+    return {
+        "items": [
+            {
+                "content_id": item.id,
+                "title": item.title,
+                "media_type": item.media_type,
+                "size_bytes": item.size_bytes,
+                "size_display": format_bytes(item.size_bytes),
+                "poster_url": _poster_url(item.poster_path),
+            }
+            for item in items
+        ],
+    }
+
+
+@router.post("/treasure/{content_id}/claim")
+async def claim_content(request: Request, content_id: int) -> dict:
+    """Claim unclaimed content, adding it to the user's chest."""
+    user = await _require_user(request)
+    db = _get_db(request)
+
+    content = db.get_content(content_id)
+    if content is None:
+        raise HTTPException(status_code=404, detail="Content not found")
+
+    if content.status != "active":
+        raise HTTPException(status_code=400, detail="Content is not active")
+
+    existing = db.get_ownership(content_id)
+    if existing is not None:
+        raise HTTPException(status_code=400, detail="Content already has an owner")
+
+    # Check quota
+    config = _get_config(request)
+    db_settings = db.get_all_settings()
+    plank_mode = db_settings.get("plank_mode", config.quotas.plank_mode)
+    summary = db.get_quota_summary(user.id, plank_mode=plank_mode)
+    if summary and (summary.available_bytes < content.size_bytes):
+        raise HTTPException(
+            status_code=400,
+            detail="Not enough quota to claim this content ("
+            + format_bytes(content.size_bytes) + " needed, "
+            + format_bytes(summary.available_bytes) + " available)",
+        )
+
+    db.claim_content(content_id, user.id)
+
+    return {
+        "success": True,
+        "message": f"'{content.title}' has been claimed! It's now in your treasure chest.",
+        "content_id": content_id,
+    }
+
+
 @router.post("/treasure/onboarded")
 async def mark_onboarded(request: Request) -> dict:
     """Mark the current user as having completed onboarding."""
