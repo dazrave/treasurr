@@ -313,6 +313,7 @@ input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
         <!-- Promotion Mode -->
         <div>
           <span class="setting-label">Promotion Mode</span>
+          <p style="color:var(--text-dim); font-size:13px; margin-bottom:10px;">When enough crew members watch something, it gets "promoted" to shared content. This controls what happens to the original owner's storage quota when that happens.</p>
           <div class="radio-group" id="rg-promotion-mode">
             <label class="radio-option" data-value="full_plunder">
               <input type="radio" name="promotion_mode" value="full_plunder">
@@ -334,6 +335,7 @@ input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
         <!-- Plank Mode -->
         <div>
           <span class="setting-label">Walk the Plank Mode</span>
+          <p style="color:var(--text-dim); font-size:13px; margin-bottom:10px;">When someone deletes content, it "walks the plank" for a set number of days before being permanently removed. This gives other crew members a chance to save it.</p>
           <div class="radio-group" id="rg-plank-mode">
             <label class="radio-option" data-value="adrift">
               <input type="radio" name="plank_mode" value="adrift" onchange="toggleRescueAction()">
