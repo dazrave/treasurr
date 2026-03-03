@@ -1150,7 +1150,7 @@ async function loadQuota() {
 
     const retNote = document.getElementById('retention-note');
     if (data.min_retention_days && data.min_retention_days > 0) {
-      retNote.textContent = 'Your admin requires content to stay for at least ' + data.min_retention_days + ' days.';
+      retNote.textContent = 'Your captain requires content to stay for at least ' + data.min_retention_days + ' days.';
     } else {
       retNote.textContent = 'Automatically remove content after you finish watching it.';
     }
@@ -1673,7 +1673,7 @@ const obSteps = [
   },
   {
     title: 'Auto-cleanup',
-    body: 'You can set content to automatically delete after you\'ve finished watching it. Your admin might also set a minimum time before things can be removed, so everyone gets a chance to watch.'
+    body: 'You can set content to automatically delete after you\'ve finished watching it. Your captain might also set a minimum time before things can be removed, so everyone gets a chance to watch.'
   },
   {
     title: 'You\'re all set!',
