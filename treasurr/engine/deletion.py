@@ -14,6 +14,9 @@ logger = logging.getLogger(__name__)
 
 def _get_plank_days(db: Database, config: Config) -> int:
     """Read plank_days from settings, falling back to config."""
+    plank_mode = db.get_setting("plank_mode", config.quotas.plank_mode)
+    if plank_mode == "disabled":
+        return 0
     raw = db.get_setting("plank_days", "")
     if raw:
         try:

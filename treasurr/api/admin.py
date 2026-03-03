@@ -190,7 +190,7 @@ async def update_settings(request: Request) -> dict:
             raise HTTPException(status_code=400, detail=f"Invalid display_mode. Must be one of: {valid_display_modes}")
         db.set_setting("display_mode", body["display_mode"])
 
-    valid_plank_modes = ("anchored", "adrift")
+    valid_plank_modes = ("anchored", "adrift", "disabled")
     if "plank_mode" in body:
         if body["plank_mode"] not in valid_plank_modes:
             raise HTTPException(status_code=400, detail=f"Invalid plank_mode. Must be one of: {valid_plank_modes}")

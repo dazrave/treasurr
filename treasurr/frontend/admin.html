@@ -351,6 +351,13 @@ input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
                 <div class="radio-option-desc">Deleted content stays on the owner's quota. Only they can undo the delete.</div>
               </div>
             </label>
+            <label class="radio-option" data-value="disabled">
+              <input type="radio" name="plank_mode" value="disabled" onchange="toggleRescueAction()">
+              <div>
+                <div class="radio-option-label">Disabled</div>
+                <div class="radio-option-desc">No grace period. Content is permanently deleted immediately when scuttled.</div>
+              </div>
+            </label>
           </div>
         </div>
 
@@ -362,14 +369,14 @@ input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
               <input type="radio" name="plank_rescue_action" value="promote">
               <div>
                 <div class="radio-option-label">Promote to Shared</div>
-                <div class="radio-option-desc">Rescued content becomes shared plunder, free for all.</div>
+                <div class="radio-option-desc">When someone watches planked content, it becomes shared between the owner and the watcher.</div>
               </div>
             </label>
             <label class="radio-option" data-value="adopt">
               <input type="radio" name="plank_rescue_action" value="adopt">
               <div>
                 <div class="radio-option-label">Adopt</div>
-                <div class="radio-option-desc">Rescued content moves to the rescuer's personal quota.</div>
+                <div class="radio-option-desc">Someone can adopt planked content to save it, taking on the storage burden even if they're not ready to watch yet.</div>
               </div>
             </label>
           </div>
@@ -404,7 +411,7 @@ input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
         </div>
 
         <!-- Plank Grace Period dropdown -->
-        <div>
+        <div id="plank-days-row">
           <span class="setting-label">Plank Grace Period</span>
           <select class="setting-select" id="set-plank-days">
             <option value="0">0 days (instant delete)</option>
@@ -980,6 +987,8 @@ document.addEventListener('change', function(e) {
 function toggleRescueAction() {
   var mode = getRadioValue('plank_mode');
   document.getElementById('rescue-action-row').style.display = mode === 'adrift' ? 'block' : 'none';
+  var plankDaysRow = document.getElementById('plank-days-row');
+  if (plankDaysRow) plankDaysRow.style.display = mode === 'disabled' ? 'none' : 'block';
 }
 
 async function saveSettings() {
