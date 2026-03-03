@@ -53,6 +53,26 @@ async def get_current_user(request: Request) -> User | None:
     return db.get_user(session["user_id"])
 
 
+async def get_effective_user(request: Request) -> tuple[User | None, User | None]:
+    """Return (effective_user, real_user). If admin is using view_as, effective_user is the target.
+
+    Returns (effective_user, real_user) where real_user is the actual authenticated user.
+    If not using view_as, both are the same.
+    """
+    real_user = await get_current_user(request)
+    if real_user is None:
+        return None, None
+
+    view_as = request.query_params.get("view_as")
+    if view_as and real_user.is_admin:
+        db = _get_db(request)
+        target = db.get_user(int(view_as))
+        if target:
+            return target, real_user
+
+    return real_user, real_user
+
+
 def require_auth(f: Callable) -> Callable:
     """Decorator that requires authentication."""
     @wraps(f)

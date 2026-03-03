@@ -23,15 +23,25 @@ async def sync_requests(db: Database, config: Config) -> int:
 
         media_type = "show" if req.media_type == "tv" else "movie"
 
-        # Resolve title - Overseerr's /request endpoint often omits it
+        # Resolve title and poster - Overseerr's /request endpoint often omits title
         title = req.title
+        poster_path = None
         if not title or title == "Unknown":
             try:
-                title = await client.get_media_title(req.tmdb_id, req.media_type)
+                info = await client.get_media_info(req.tmdb_id, req.media_type)
+                title = info.get("title") or title
+                poster_path = info.get("poster_path") or None
             except Exception:
                 pass
             if not title:
                 title = "Unknown"
+        else:
+            # Even if we have a title, try to get the poster
+            try:
+                info = await client.get_media_info(req.tmdb_id, req.media_type)
+                poster_path = info.get("poster_path") or None
+            except Exception:
+                pass
 
         # Match existing user by username first (Tautulli creates users with real
         # Plex IDs, Overseerr only has its own internal IDs). Fall back to creating
@@ -52,6 +62,10 @@ async def sync_requests(db: Database, config: Config) -> int:
             tmdb_id=req.tmdb_id,
             overseerr_request_id=req.request_id,
         )
+
+        # Store poster if we got one and content doesn't have one yet
+        if poster_path and not content.poster_path:
+            db.update_content_poster(content.id, poster_path)
 
         # Set ownership if not already owned
         existing = db.get_ownership(content.id)

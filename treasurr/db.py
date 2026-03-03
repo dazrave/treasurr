@@ -17,6 +17,7 @@ from treasurr.models import (
     QuotaSplit,
     QuotaSummary,
     QuotaTransaction,
+    Season,
     User,
     WatchEvent,
 )
@@ -44,7 +45,17 @@ CREATE TABLE IF NOT EXISTS content (
     size_bytes INTEGER DEFAULT 0,
     status TEXT DEFAULT 'active' CHECK(status IN ('active', 'deleting', 'deleted')),
     added_at TEXT NOT NULL,
+    poster_path TEXT,
     UNIQUE(tmdb_id, media_type)
+);
+
+CREATE TABLE IF NOT EXISTS seasons (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    content_id INTEGER NOT NULL REFERENCES content(id),
+    season_number INTEGER NOT NULL,
+    episode_count INTEGER DEFAULT 0,
+    size_bytes INTEGER DEFAULT 0,
+    UNIQUE(content_id, season_number)
 );
 
 CREATE TABLE IF NOT EXISTS content_ownership (
@@ -159,6 +170,10 @@ class Database:
             conn.execute("ALTER TABLE users ADD COLUMN auto_scuttle_days INTEGER DEFAULT 0")
         if "onboarded" not in columns:
             conn.execute("ALTER TABLE users ADD COLUMN onboarded BOOLEAN DEFAULT 0")
+
+        content_cols = {row[1] for row in conn.execute("PRAGMA table_info(content)").fetchall()}
+        if "poster_path" not in content_cols:
+            conn.execute("ALTER TABLE content ADD COLUMN poster_path TEXT")
 
         ownership_cols = {row[1] for row in conn.execute("PRAGMA table_info(content_ownership)").fetchall()}
         if "plank_started_at" not in ownership_cols:
@@ -351,10 +366,55 @@ class Database:
             if radarr_id is not None:
                 conn.execute("UPDATE content SET radarr_id = ? WHERE id = ?", (radarr_id, content_id))
 
+    def update_content_poster(self, content_id: int, poster_path: str) -> None:
+        with self.connection() as conn:
+            conn.execute("UPDATE content SET poster_path = ? WHERE id = ?", (poster_path, content_id))
+
     def get_all_active_content(self) -> list[Content]:
         with self.connection() as conn:
             rows = conn.execute("SELECT * FROM content WHERE status = 'active' ORDER BY title").fetchall()
             return [_row_to_content(r) for r in rows]
+
+    # --- Seasons ---
+
+    def upsert_season(self, content_id: int, season_number: int, episode_count: int, size_bytes: int) -> None:
+        with self.connection() as conn:
+            conn.execute(
+                """INSERT INTO seasons (content_id, season_number, episode_count, size_bytes)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(content_id, season_number) DO UPDATE SET
+                     episode_count = excluded.episode_count,
+                     size_bytes = excluded.size_bytes""",
+                (content_id, season_number, episode_count, size_bytes),
+            )
+
+    def get_seasons(self, content_id: int) -> list[Season]:
+        with self.connection() as conn:
+            rows = conn.execute(
+                "SELECT * FROM seasons WHERE content_id = ? ORDER BY season_number",
+                (content_id,),
+            ).fetchall()
+            return [
+                Season(
+                    id=r["id"],
+                    content_id=r["content_id"],
+                    season_number=r["season_number"],
+                    episode_count=r["episode_count"],
+                    size_bytes=r["size_bytes"],
+                )
+                for r in rows
+            ]
+
+    def delete_seasons(self, content_id: int) -> None:
+        with self.connection() as conn:
+            conn.execute("DELETE FROM seasons WHERE content_id = ?", (content_id,))
+
+    def update_season_size(self, content_id: int, season_number: int, size_bytes: int) -> None:
+        with self.connection() as conn:
+            conn.execute(
+                "UPDATE seasons SET size_bytes = ? WHERE content_id = ? AND season_number = ?",
+                (size_bytes, content_id, season_number),
+            )
 
     # --- Ownership ---
 
@@ -938,6 +998,7 @@ def _row_to_user(row: sqlite3.Row) -> User:
 
 
 def _row_to_content(row: sqlite3.Row) -> Content:
+    keys = row.keys() if hasattr(row, "keys") else []
     return Content(
         id=row["id"],
         title=row["title"],
@@ -949,6 +1010,7 @@ def _row_to_content(row: sqlite3.Row) -> Content:
         size_bytes=row["size_bytes"],
         status=row["status"],
         added_at=row["added_at"],
+        poster_path=row["poster_path"] if "poster_path" in keys else None,
     )
 
 

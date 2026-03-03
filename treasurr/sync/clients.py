@@ -188,6 +188,24 @@ class OverseerrClient:
         except Exception:
             return ""
 
+    async def get_media_info(self, tmdb_id: int, media_type: str) -> dict:
+        """Look up media info including poster path from Overseerr."""
+        try:
+            path = f"/{'movie' if media_type == 'movie' else 'tv'}/{tmdb_id}"
+            data = await self._get(path)
+            return {
+                "title": (
+                    data.get("title")
+                    or data.get("name")
+                    or data.get("originalTitle")
+                    or data.get("originalName")
+                    or ""
+                ),
+                "poster_path": data.get("posterPath", ""),
+            }
+        except Exception:
+            return {"title": "", "poster_path": ""}
+
     async def get_user(self, user_id: int) -> dict:
         return await self._get(f"/user/{user_id}")
 
@@ -241,6 +259,15 @@ class SonarrClient:
 
     async def delete(self, series_id: int, delete_files: bool = True) -> None:
         await self._request("DELETE", f"/series/{series_id}", params={"deleteFiles": delete_files})
+
+    async def get_episodes(self, series_id: int) -> list[dict]:
+        """Fetch all episodes for a series. Returns raw episode data."""
+        data = await self._request("GET", "/episode", params={"seriesId": series_id})
+        return data or []
+
+    async def delete_episode_file(self, file_id: int) -> None:
+        """Delete a single episode file by its file ID."""
+        await self._request("DELETE", f"/episodefile/{file_id}")
 
     async def lookup_by_tmdb(self, tmdb_id: int) -> ArrMedia | None:
         data = await self._request("GET", "/series/lookup", params={"term": f"tmdb:{tmdb_id}"})

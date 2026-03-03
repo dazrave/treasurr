@@ -31,6 +31,16 @@ class Content:
     size_bytes: int = 0
     status: str = "active"  # 'active', 'deleting', 'deleted'
     added_at: str = ""
+    poster_path: str | None = None
+
+
+@dataclass(frozen=True)
+class Season:
+    id: int
+    content_id: int
+    season_number: int
+    episode_count: int = 0
+    size_bytes: int = 0
 
 
 @dataclass(frozen=True)

@@ -1,4 +1,4 @@
-"""Sync file sizes and disk space from Sonarr and Radarr."""
+"""Sync file sizes, seasons, posters, and disk space from Sonarr, Radarr, and Overseerr."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import logging
 
 from treasurr.config import Config
 from treasurr.db import Database
-from treasurr.sync.clients import RadarrClient, SonarrClient
+from treasurr.sync.clients import OverseerrClient, RadarrClient, SonarrClient
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +97,68 @@ async def sync_sizes(db: Database, config: Config) -> int:
             logger.debug("Updated '%s': %d bytes", arr_title or content.title, new_size)
 
     logger.info("Size sync complete: %d content items updated", updated)
+    return updated
+
+
+async def sync_seasons(db: Database, config: Config) -> int:
+    """Sync season-level episode data from Sonarr for all shows. Returns update count."""
+    sonarr = SonarrClient(config.sonarr)
+    updated = 0
+
+    for content in db.get_all_active_content():
+        if content.media_type != "show" or not content.sonarr_id:
+            continue
+
+        try:
+            episodes = await sonarr.get_episodes(content.sonarr_id)
+        except Exception as e:
+            logger.warning("Failed to fetch episodes for '%s' (sonarr_id=%d): %s", content.title, content.sonarr_id, e)
+            continue
+
+        # Aggregate by season: count episodes with files and sum their sizes
+        season_data: dict[int, dict] = {}
+        for ep in episodes:
+            sn = ep.get("seasonNumber", 0)
+            if sn == 0:
+                continue  # Skip specials
+            if sn not in season_data:
+                season_data[sn] = {"episode_count": 0, "size_bytes": 0}
+            if ep.get("hasFile", False):
+                season_data[sn]["episode_count"] += 1
+                ep_file = ep.get("episodeFile", {})
+                season_data[sn]["size_bytes"] += ep_file.get("size", 0)
+
+        for sn, data in season_data.items():
+            db.upsert_season(content.id, sn, data["episode_count"], data["size_bytes"])
+
+        updated += 1
+        logger.debug("Synced %d seasons for '%s'", len(season_data), content.title)
+
+    logger.info("Season sync complete: %d shows updated", updated)
+    return updated
+
+
+async def sync_posters(db: Database, config: Config) -> int:
+    """Backfill poster paths from Overseerr for content missing posters. Returns update count."""
+    client = OverseerrClient(config.overseerr)
+    updated = 0
+
+    for content in db.get_all_active_content():
+        if content.poster_path:
+            continue
+
+        media_type = "tv" if content.media_type == "show" else "movie"
+        try:
+            info = await client.get_media_info(content.tmdb_id, media_type)
+            poster = info.get("poster_path", "")
+            if poster:
+                db.update_content_poster(content.id, poster)
+                updated += 1
+                logger.debug("Backfilled poster for '%s'", content.title)
+        except Exception as e:
+            logger.warning("Failed to fetch poster for '%s': %s", content.title, e)
+
+    logger.info("Poster backfill complete: %d items updated", updated)
     return updated
 
 

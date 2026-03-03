@@ -7,6 +7,7 @@ import json
 from fastapi import APIRouter, HTTPException, Request
 
 from treasurr.api.auth import get_current_user
+from treasurr.engine.deletion import _execute_deletion, scuttle_content
 from treasurr.engine.quota import format_bytes
 from treasurr.sync.scheduler import run_full_sync
 
@@ -276,4 +277,44 @@ async def get_stats(request: Request) -> dict:
         "disk_free_bytes": disk_space.get("free_bytes", 0),
         "disk_free_display": format_bytes(disk_space.get("free_bytes", 0)),
         "user_storage": user_storage,
+    }
+
+
+@router.post("/scuttle/{content_id}")
+async def admin_force_scuttle(request: Request, content_id: int) -> dict:
+    """Admin force-scuttle: delete any content, bypassing ownership check."""
+    admin = await _require_admin(request)
+    db = _get_db(request)
+    config = _get_config(request)
+
+    content = db.get_content(content_id)
+    if content is None:
+        raise HTTPException(status_code=404, detail="Content not found")
+
+    if content.status != "active":
+        raise HTTPException(status_code=400, detail="Content is not active")
+
+    force = request.query_params.get("force", "false").lower() == "true"
+
+    if force:
+        # Skip plank, delete immediately
+        ownership = db.get_ownership(content_id)
+        user_id = ownership.owner_user_id if ownership else admin.id
+        result = await _execute_deletion(db, config, content_id, user_id, content)
+    else:
+        # Use normal scuttle flow (respects plank)
+        ownership = db.get_ownership(content_id)
+        if ownership is None:
+            raise HTTPException(status_code=400, detail="Content has no owner")
+        result = await scuttle_content(db, config, content_id, ownership.owner_user_id)
+
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.message)
+
+    return {
+        "success": True,
+        "message": result.message,
+        "freed_bytes": result.freed_bytes,
+        "freed_display": format_bytes(result.freed_bytes),
+        "walked_plank": result.walked_plank,
     }

@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
 
-from treasurr.api.auth import get_current_user
+from treasurr.api.auth import get_current_user, get_effective_user
 from treasurr.db import Database
-from treasurr.engine.deletion import scuttle_content
+from treasurr.engine.deletion import scuttle_content, scuttle_season
 from treasurr.engine.plank import rescue_content
 from treasurr.engine.quota import format_bytes
 
 router = APIRouter(prefix="/api", tags=["treasure"])
+
+TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w300"
 
 
 def _get_db(request: Request) -> Database:
@@ -28,10 +30,18 @@ async def _require_user(request: Request):
     return user
 
 
+async def _require_effective_user(request: Request):
+    """Get the effective user (supports view_as for admins)."""
+    effective, real = await get_effective_user(request)
+    if effective is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return effective, real
+
+
 @router.get("/treasure")
 async def get_treasure_summary(request: Request) -> dict:
     """Get the current user's quota summary."""
-    user = await _require_user(request)
+    effective, real = await _require_effective_user(request)
     db = _get_db(request)
     config = _get_config(request)
 
@@ -43,13 +53,13 @@ async def get_treasure_summary(request: Request) -> dict:
     plank_days = int(db_settings.get("plank_days", str(config.quotas.plank_days)))
 
     include_splits = promotion_mode == "split_the_loot"
-    summary = db.get_quota_summary(user.id, include_splits=include_splits, plank_mode=plank_mode)
+    summary = db.get_quota_summary(effective.id, include_splits=include_splits, plank_mode=plank_mode)
     if summary is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return {
-        "user_id": user.id,
-        "username": user.plex_username,
+    result = {
+        "user_id": effective.id,
+        "username": effective.plex_username,
         "quota_bytes": summary.quota_bytes,
         "bonus_bytes": summary.bonus_bytes,
         "total_bytes": summary.total_bytes,
@@ -61,14 +71,24 @@ async def get_treasure_summary(request: Request) -> dict:
         "quota_display": format_bytes(summary.total_bytes),
         "used_display": format_bytes(summary.total_used_bytes),
         "available_display": format_bytes(summary.available_bytes),
-        "auto_scuttle_days": user.auto_scuttle_days,
+        "auto_scuttle_days": effective.auto_scuttle_days,
         "min_retention_days": min_retention_days,
         "display_mode": display_mode,
         "promotion_mode": promotion_mode,
         "plank_days": plank_days,
         "plank_mode": plank_mode,
-        "onboarded": user.onboarded,
+        "onboarded": effective.onboarded,
     }
+
+    # Add view_as metadata if admin is viewing as another user
+    if real.id != effective.id:
+        result["view_as"] = {
+            "user_id": effective.id,
+            "username": effective.plex_username,
+            "admin_username": real.plex_username,
+        }
+
+    return result
 
 
 def _derive_quality(size_bytes: int, media_type: str) -> tuple[str, str]:
@@ -92,12 +112,19 @@ def _derive_quality(size_bytes: int, media_type: str) -> tuple[str, str]:
     return "SD", "Standard definition - smallest file"
 
 
+def _poster_url(poster_path: str | None) -> str | None:
+    """Build full TMDB poster URL from relative path."""
+    if not poster_path:
+        return None
+    return f"{TMDB_IMAGE_BASE}{poster_path}"
+
+
 @router.get("/treasure/chest")
 async def get_treasure_chest(request: Request) -> dict:
-    """Get the current user's owned content list."""
-    user = await _require_user(request)
+    """Get the current user's owned content list with poster and season data."""
+    effective, real = await _require_effective_user(request)
     db = _get_db(request)
-    items = db.get_user_owned_content(user.id)
+    items = db.get_user_owned_content(effective.id)
 
     result_items = []
     for item in items:
@@ -105,12 +132,14 @@ async def get_treasure_chest(request: Request) -> dict:
         if item.content.size_bytes <= 0:
             continue
         quality, quality_note = _derive_quality(item.content.size_bytes, item.content.media_type)
-        result_items.append({
+
+        entry = {
             "content_id": item.content.id,
             "title": item.content.title,
             "media_type": item.content.media_type,
             "size_bytes": item.content.size_bytes,
             "size_display": format_bytes(item.content.size_bytes),
+            "poster_url": _poster_url(item.content.poster_path),
             "quality": quality,
             "quality_note": quality_note,
             "status": item.ownership.status,
@@ -118,19 +147,45 @@ async def get_treasure_chest(request: Request) -> dict:
             "promoted_at": item.ownership.promoted_at,
             "unique_viewers": item.unique_viewers,
             "can_scuttle": item.ownership.status == "owned",
-        })
+        }
 
-    return {"items": result_items}
+        # Include season data for shows
+        if item.content.media_type == "show":
+            seasons = db.get_seasons(item.content.id)
+            entry["seasons"] = [
+                {
+                    "season_number": s.season_number,
+                    "episode_count": s.episode_count,
+                    "size_bytes": s.size_bytes,
+                    "size_display": format_bytes(s.size_bytes),
+                }
+                for s in seasons
+            ]
+        else:
+            entry["seasons"] = None
+
+        result_items.append(entry)
+
+    response = {"items": result_items}
+
+    if real.id != effective.id:
+        response["view_as"] = {
+            "user_id": effective.id,
+            "username": effective.plex_username,
+            "admin_username": real.plex_username,
+        }
+
+    return response
 
 
 @router.post("/treasure/{content_id}/scuttle")
 async def scuttle(request: Request, content_id: int) -> dict:
     """Delete content owned by the current user."""
-    user = await _require_user(request)
+    effective, _ = await _require_effective_user(request)
     db = _get_db(request)
     config = _get_config(request)
 
-    result = await scuttle_content(db, config, content_id, user.id)
+    result = await scuttle_content(db, config, content_id, effective.id)
 
     if not result.success:
         raise HTTPException(status_code=400, detail=result.message)
@@ -149,6 +204,26 @@ async def scuttle(request: Request, content_id: int) -> dict:
         response["freed_display"] = format_bytes(result.freed_bytes)
 
     return response
+
+
+@router.post("/treasure/{content_id}/scuttle-season/{season_number}")
+async def scuttle_season_endpoint(request: Request, content_id: int, season_number: int) -> dict:
+    """Delete all episode files for a specific season."""
+    effective, _ = await _require_effective_user(request)
+    db = _get_db(request)
+    config = _get_config(request)
+
+    result = await scuttle_season(db, config, content_id, season_number, effective.id)
+
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.message)
+
+    return {
+        "success": True,
+        "message": result.message,
+        "freed_bytes": result.freed_bytes,
+        "freed_display": format_bytes(result.freed_bytes),
+    }
 
 
 @router.get("/plank")
@@ -173,6 +248,7 @@ async def get_plank_content(request: Request) -> dict:
                 "media_type": item.content.media_type,
                 "size_bytes": item.content.size_bytes,
                 "size_display": format_bytes(item.content.size_bytes),
+                "poster_url": _poster_url(item.content.poster_path),
                 "owner_user_id": item.ownership.owner_user_id,
                 "plank_started_at": item.ownership.plank_started_at,
                 "unique_viewers": item.unique_viewers,
@@ -216,6 +292,7 @@ async def get_shared_plunder(request: Request) -> dict:
                 "media_type": item.media_type,
                 "size_bytes": item.size_bytes,
                 "size_display": format_bytes(item.size_bytes),
+                "poster_url": _poster_url(item.poster_path),
             }
             for item in items
         ],

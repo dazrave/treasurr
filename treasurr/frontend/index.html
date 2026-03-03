@@ -83,6 +83,19 @@ a:hover { color: var(--gold-bright); }
 }
 .btn-login:hover { background: var(--gold); color: var(--bg); }
 
+/* View-as banner */
+.view-as-banner {
+  background: #614e1a;
+  border-bottom: 2px solid var(--gold);
+  padding: 10px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: var(--gold-bright);
+}
+.view-as-banner a { color: #fff; font-weight: 600; margin-left: 12px; }
+
 /* Login screen */
 .login-screen {
   display: flex;
@@ -100,7 +113,7 @@ a:hover { color: var(--gold-bright); }
 .login-screen p { color: var(--text-dim); font-size: 16px; }
 
 /* Main content */
-.main { max-width: 900px; margin: 0 auto; padding: 24px; }
+.main { max-width: 1200px; margin: 0 auto; padding: 24px; }
 
 /* Quota bar */
 .quota-card {
@@ -173,7 +186,236 @@ a:hover { color: var(--gold-bright); }
   align-items: center;
 }
 
-/* Content list */
+/* Filter bar */
+.filter-bar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.filter-group {
+  display: flex;
+  gap: 4px;
+}
+.filter-btn {
+  padding: 4px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+.filter-btn:hover { border-color: var(--gold-dim); color: var(--text); }
+.filter-btn.active { background: var(--gold-dim); border-color: var(--gold); color: #fff; }
+.sort-select {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.filter-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  margin-right: 4px;
+}
+
+/* Poster grid */
+.poster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+  padding: 20px;
+}
+.poster-card {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  background: var(--surface-2);
+  border: 2px solid transparent;
+}
+.poster-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  z-index: 2;
+}
+.poster-card.expanded {
+  border-color: var(--gold);
+}
+.poster-card.promoted {
+  border-color: var(--promoted);
+}
+.poster-img {
+  width: 100%;
+  aspect-ratio: 2/3;
+  object-fit: cover;
+  display: block;
+  background: var(--surface-2);
+}
+.poster-fallback {
+  width: 100%;
+  aspect-ratio: 2/3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--surface-2), var(--surface));
+  padding: 16px;
+  text-align: center;
+}
+.poster-fallback .icon { font-size: 36px; margin-bottom: 8px; }
+.poster-fallback .title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+.poster-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.9));
+  padding: 32px 10px 10px;
+}
+.poster-title {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #fff;
+}
+.poster-badges {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+.poster-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.badge-size {
+  background: rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.8);
+}
+.badge-quality {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+.badge-promoted {
+  background: rgba(63,185,80,0.2);
+  color: var(--promoted);
+}
+.badge-type {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0,0,0,0.7);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 14px;
+}
+.badge-viewers {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.7);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* Detail panel (expands below card row) */
+.detail-panel {
+  background: var(--surface);
+  border: 1px solid var(--gold-dim);
+  border-radius: 8px;
+  margin: 8px 20px 16px;
+  padding: 20px;
+  animation: slideDown 0.2s ease;
+}
+@keyframes slideDown {
+  from { opacity: 0; max-height: 0; }
+  to { opacity: 1; max-height: 600px; }
+}
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+.detail-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gold);
+}
+.detail-meta {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+.detail-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+/* Season list in detail panel */
+.season-list { margin-top: 12px; }
+.season-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 6px;
+  gap: 12px;
+  transition: background 0.1s;
+}
+.season-row:hover { background: var(--surface-2); }
+.season-label { flex: 1; font-size: 14px; font-weight: 500; }
+.season-meta {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  min-width: 80px;
+  text-align: right;
+}
+.season-eps {
+  font-size: 12px;
+  color: var(--text-dim);
+  min-width: 90px;
+}
+.season-scuttle {
+  padding: 3px 8px;
+  font-size: 11px;
+  border: 1px solid var(--red);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--red);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.season-scuttle:hover { background: var(--red); color: #fff; }
+
+/* Content list (for plank, plunder, activity) */
 .content-item {
   display: flex;
   align-items: center;
@@ -209,13 +451,6 @@ a:hover { color: var(--gold-bright); }
   flex-shrink: 0;
   min-width: 60px;
   text-align: right;
-}
-.content-viewers {
-  font-size: 13px;
-  color: var(--text-dim);
-  flex-shrink: 0;
-  min-width: 40px;
-  text-align: center;
 }
 .scuttle-btn {
   padding: 4px 10px;
@@ -384,12 +619,25 @@ a:hover { color: var(--gold-bright); }
   vertical-align: middle;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .main { padding: 12px; }
-  .content-item { flex-wrap: wrap; gap: 8px; }
-  .content-viewers { display: none; }
+  .poster-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+    padding: 12px;
+  }
+  .detail-panel { margin: 8px 12px 12px; padding: 14px; }
+  .filter-bar { padding: 10px 12px; }
   .header { padding: 12px 16px; }
   .login-screen h1 { font-size: 32px; }
+}
+
+@media (max-width: 480px) {
+  .poster-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+    padding: 8px;
+  }
 }
 </style>
 </head>
@@ -420,6 +668,12 @@ a:hover { color: var(--gold-bright); }
 
   <!-- Dashboard -->
   <div id="dashboard" style="display:none;">
+    <!-- View-as banner -->
+    <div id="view-as-banner" class="view-as-banner" style="display:none;">
+      <span>Viewing as <strong id="view-as-username"></strong></span>
+      <a href="/">Back to your dashboard</a>
+    </div>
+
     <div class="header">
       <div class="header-brand">&#9875; TREASURR</div>
       <div class="header-user">
@@ -461,14 +715,32 @@ a:hover { color: var(--gold-bright); }
         </div>
       </div>
 
-      <!-- Cargo (owned content) -->
+      <!-- Cargo (owned content) - Poster Grid -->
       <div class="section">
         <div class="section-header">
           <span>Your Cargo</span>
-          <span>Size &middot; Crew</span>
+          <span id="cargo-count"></span>
         </div>
-        <div id="cargo-list">
-          <div class="loading">Loading your cargo...</div>
+        <div class="filter-bar">
+          <span class="filter-label">Type:</span>
+          <div class="filter-group" id="type-filters">
+            <button class="filter-btn active" data-filter="all" onclick="setTypeFilter('all')">All</button>
+            <button class="filter-btn" data-filter="movie" onclick="setTypeFilter('movie')">Movies</button>
+            <button class="filter-btn" data-filter="show" onclick="setTypeFilter('show')">Shows</button>
+          </div>
+          <span class="filter-label" style="margin-left:auto;">Sort:</span>
+          <select class="sort-select" id="sort-select" onchange="setSortOrder(this.value)">
+            <option value="name-asc">Name A-Z</option>
+            <option value="name-desc">Name Z-A</option>
+            <option value="size-desc">Size (largest)</option>
+            <option value="size-asc">Size (smallest)</option>
+            <option value="date-desc">Recently Added</option>
+          </select>
+        </div>
+        <div id="cargo-container">
+          <div id="cargo-grid" class="poster-grid">
+            <div class="loading">Loading your cargo...</div>
+          </div>
         </div>
       </div>
 
@@ -479,6 +751,14 @@ a:hover { color: var(--gold-bright); }
           <span id="plank-mode-label"></span>
         </div>
         <div id="plank-list"></div>
+      </div>
+
+      <!-- Shared Plunder -->
+      <div class="section" id="plunder-section">
+        <div class="section-header">Shared Plunder</div>
+        <div id="plunder-grid" class="poster-grid">
+          <div class="loading">Loading shared plunder...</div>
+        </div>
       </div>
 
       <!-- Recent Activity -->
@@ -514,6 +794,27 @@ a:hover { color: var(--gold-bright); }
 const API = '';
 let currentUser = null;
 let pendingScuttleId = null;
+let pendingScuttleAction = null; // 'content' or 'season'
+let pendingSeasonNumber = null;
+let cargoItems = [];
+let currentTypeFilter = 'all';
+let currentSort = 'name-asc';
+let expandedContentId = null;
+
+// Get view_as param from URL
+function getViewAsParam() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('view_as') || '';
+}
+
+function apiUrl(path) {
+  const va = getViewAsParam();
+  if (va) {
+    const sep = path.includes('?') ? '&' : '?';
+    return API + path + sep + 'view_as=' + va;
+  }
+  return API + path;
+}
 
 // --- Auth ---
 async function checkAuth() {
@@ -590,19 +891,24 @@ async function logout() {
 
 // --- Dashboard Data ---
 async function loadDashboard() {
-  await Promise.all([loadQuota(), loadCargo(), loadPlank(), loadActivity()]);
+  await Promise.all([loadQuota(), loadCargo(), loadPlank(), loadPlunder(), loadActivity()]);
 }
 
 async function loadQuota() {
   try {
-    const resp = await fetch(API + '/api/treasure');
+    const resp = await fetch(apiUrl('/api/treasure'));
     const data = await resp.json();
 
-    // Store settings for client-side use
+    // Handle view-as banner
+    if (data.view_as) {
+      const banner = document.getElementById('view-as-banner');
+      banner.style.display = 'flex';
+      document.getElementById('view-as-username').textContent = data.view_as.username;
+    }
+
     window._displayMode = data.display_mode || 'exact';
     window._plankDays = data.plank_days || 0;
 
-    // Quota numbers  - show shared portion if split_the_loot
     let usedText = data.used_display;
     if (data.promotion_mode === 'split_the_loot' && data.split_display) {
       usedText = data.used_display + ' (' + data.split_display + ' shared)';
@@ -617,13 +923,11 @@ async function loadQuota() {
     if (data.usage_percent >= 90) bar.classList.add('danger');
     else if (data.usage_percent >= 75) bar.classList.add('warning');
 
-    // Auto-scuttle select
     const scuttleSelect = document.getElementById('auto-scuttle-select');
     if (data.auto_scuttle_days !== undefined) {
       scuttleSelect.value = String(data.auto_scuttle_days || 0);
     }
 
-    // Retention note
     const retNote = document.getElementById('retention-note');
     if (data.min_retention_days && data.min_retention_days > 0) {
       retNote.textContent = 'Your admin requires content to stay for at least ' + data.min_retention_days + ' days.';
@@ -634,46 +938,166 @@ async function loadQuota() {
 }
 
 async function loadCargo() {
-  const container = document.getElementById('cargo-list');
+  const grid = document.getElementById('cargo-grid');
   try {
-    const resp = await fetch(API + '/api/treasure/chest');
+    const resp = await fetch(apiUrl('/api/treasure/chest'));
     const data = await resp.json();
-    if (data.items.length === 0) {
-      container.innerHTML = '<div class="empty">Your treasure chest is empty. Request some content!</div>';
-      return;
-    }
-    container.innerHTML = data.items.map(item => {
-      const icon = item.media_type === 'movie' ? '&#127916;' : '&#128250;';
-      const viewers = item.unique_viewers;
-      let meta = '';
-      if (item.status === 'promoted') {
-        meta = '<span class="promoted-badge">Promoted to Shared Plunder! &#9875;</span>';
-      } else if (viewers <= 1) {
-        const days = daysSince(item.owned_at);
-        meta = 'Only you &middot; ' + days + ' days';
-      } else {
-        meta = viewers + ' crew watched';
-      }
-      const qualityBadge = item.quality
-        ? '<span class="quality-badge">' + escapeHtml(item.quality) + '</span>'
-        : '';
-      const qualityNote = item.quality_note
-        ? ' &middot; ' + escapeHtml(item.quality_note)
-        : '';
-      const scuttleBtn = item.can_scuttle
-        ? '<button class="scuttle-btn" onclick="scuttle(' + item.content_id + ', \'' + escapeHtml(item.title) + '\', \'' + item.size_display + '\')">&#127988; Scuttle</button>'
-        : '';
-      return '<div class="content-item">' +
-        '<span class="content-icon">' + icon + '</span>' +
-        '<div class="content-info"><div class="content-title">' + escapeHtml(item.title) + qualityBadge + '</div>' +
-        '<div class="content-meta">' + meta + qualityNote + '</div></div>' +
-        '<div class="content-size">' + item.size_display + '</div>' +
-        '<div class="content-viewers">' + viewers + ' &#128065;</div>' +
-        scuttleBtn + '</div>';
-    }).join('');
+    cargoItems = data.items;
+    renderCargo();
   } catch {
-    container.innerHTML = '<div class="empty">Failed to load cargo</div>';
+    grid.innerHTML = '<div class="empty">Failed to load cargo</div>';
   }
+}
+
+function renderCargo() {
+  const grid = document.getElementById('cargo-grid');
+  const container = document.getElementById('cargo-container');
+
+  // Filter
+  let items = cargoItems;
+  if (currentTypeFilter !== 'all') {
+    items = items.filter(function(i) { return i.media_type === currentTypeFilter; });
+  }
+
+  // Sort
+  items = [...items].sort(function(a, b) {
+    switch (currentSort) {
+      case 'name-asc': return a.title.localeCompare(b.title);
+      case 'name-desc': return b.title.localeCompare(a.title);
+      case 'size-desc': return b.size_bytes - a.size_bytes;
+      case 'size-asc': return a.size_bytes - b.size_bytes;
+      case 'date-desc': return (b.owned_at || '').localeCompare(a.owned_at || '');
+      default: return 0;
+    }
+  });
+
+  document.getElementById('cargo-count').textContent = items.length + ' items';
+
+  if (items.length === 0) {
+    grid.innerHTML = '<div class="empty">No content matches your filter.</div>';
+    // Remove any detail panel
+    const existing = container.querySelector('.detail-panel');
+    if (existing) existing.remove();
+    return;
+  }
+
+  grid.innerHTML = items.map(function(item) {
+    const isExpanded = expandedContentId === item.content_id;
+    const typeIcon = item.media_type === 'movie' ? '&#127916;' : '&#128250;';
+    const viewerText = item.unique_viewers > 0 ? item.unique_viewers + ' &#128065;' : '';
+    const promotedClass = item.status === 'promoted' ? ' promoted' : '';
+    const expandedClass = isExpanded ? ' expanded' : '';
+
+    let imgHtml;
+    if (item.poster_url) {
+      imgHtml = '<img class="poster-img" src="' + escapeAttr(item.poster_url) + '" alt="' + escapeAttr(item.title) + '" loading="lazy" onerror="this.parentElement.innerHTML=posterFallback(\'' + escapeAttr(item.title) + '\',\'' + item.media_type + '\')">';
+    } else {
+      imgHtml = '<div class="poster-fallback"><span class="icon">' + typeIcon + '</span><span class="title">' + escapeHtml(item.title) + '</span></div>';
+    }
+
+    let badges = '<span class="poster-badge badge-size">' + item.size_display + '</span>';
+    if (item.quality) {
+      badges += '<span class="poster-badge badge-quality">' + item.quality + '</span>';
+    }
+    if (item.status === 'promoted') {
+      badges += '<span class="poster-badge badge-promoted">Shared</span>';
+    }
+
+    return '<div class="poster-card' + promotedClass + expandedClass + '" data-id="' + item.content_id + '" onclick="toggleDetail(' + item.content_id + ')">' +
+      '<span class="badge-type">' + typeIcon + '</span>' +
+      (viewerText ? '<span class="badge-viewers">' + viewerText + '</span>' : '') +
+      imgHtml +
+      '<div class="poster-overlay">' +
+        '<div class="poster-title">' + escapeHtml(item.title) + '</div>' +
+        '<div class="poster-badges">' + badges + '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  // Render detail panel if one is expanded
+  const existing = container.querySelector('.detail-panel');
+  if (existing) existing.remove();
+
+  if (expandedContentId) {
+    const item = items.find(function(i) { return i.content_id === expandedContentId; });
+    if (item) {
+      renderDetailPanel(item, container);
+    }
+  }
+}
+
+function renderDetailPanel(item, container) {
+  const panel = document.createElement('div');
+  panel.className = 'detail-panel';
+
+  const typeLabel = item.media_type === 'movie' ? 'Movie' : 'TV Show';
+  const qualityText = item.quality ? ' - ' + item.quality : '';
+  const viewerText = item.unique_viewers > 0
+    ? item.unique_viewers + ' crew member' + (item.unique_viewers > 1 ? 's' : '') + ' watched'
+    : 'No one else has watched yet';
+
+  let actionsHtml = '';
+  if (item.can_scuttle) {
+    actionsHtml += '<button class="btn btn-danger" onclick="event.stopPropagation(); scuttle(' + item.content_id + ', \'' + escapeAttr(item.title) + '\', \'' + item.size_display + '\')">&#127988; Scuttle</button>';
+  }
+  actionsHtml += '<button class="btn" onclick="event.stopPropagation(); toggleDetail(null)">Close</button>';
+
+  let seasonsHtml = '';
+  if (item.seasons && item.seasons.length > 0) {
+    seasonsHtml = '<div class="season-list">' +
+      item.seasons.map(function(s) {
+        const canScuttleSeason = item.can_scuttle && s.size_bytes > 0;
+        const scuttleBtn = canScuttleSeason
+          ? '<button class="season-scuttle" onclick="event.stopPropagation(); scuttleSeason(' + item.content_id + ', ' + s.season_number + ', \'' + escapeAttr(item.title) + '\', \'' + s.size_display + '\')">Scuttle</button>'
+          : '';
+        return '<div class="season-row">' +
+          '<span class="season-label">Season ' + s.season_number + '</span>' +
+          '<span class="season-eps">' + s.episode_count + ' episode' + (s.episode_count !== 1 ? 's' : '') + '</span>' +
+          '<span class="season-meta">' + s.size_display + '</span>' +
+          scuttleBtn +
+        '</div>';
+      }).join('') +
+    '</div>';
+  } else if (item.media_type === 'show') {
+    seasonsHtml = '<div style="padding:12px 0; color:var(--text-dim); font-size:13px;">Season data syncing...</div>';
+  }
+
+  panel.innerHTML =
+    '<div class="detail-header">' +
+      '<div>' +
+        '<div class="detail-title">' + escapeHtml(item.title) + '</div>' +
+        '<div class="detail-meta">' + typeLabel + qualityText + ' - ' + item.size_display + ' - ' + viewerText + '</div>' +
+      '</div>' +
+      '<div class="detail-actions">' + actionsHtml + '</div>' +
+    '</div>' +
+    seasonsHtml;
+
+  // Insert after grid
+  const grid = document.getElementById('cargo-grid');
+  grid.parentNode.insertBefore(panel, grid.nextSibling);
+}
+
+function toggleDetail(contentId) {
+  if (expandedContentId === contentId || contentId === null) {
+    expandedContentId = null;
+  } else {
+    expandedContentId = contentId;
+  }
+  renderCargo();
+}
+
+function setTypeFilter(filter) {
+  currentTypeFilter = filter;
+  expandedContentId = null;
+  document.querySelectorAll('#type-filters .filter-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-filter') === filter);
+  });
+  renderCargo();
+}
+
+function setSortOrder(sort) {
+  currentSort = sort;
+  renderCargo();
 }
 
 async function loadPlank() {
@@ -713,6 +1137,40 @@ async function loadPlank() {
   }
 }
 
+async function loadPlunder() {
+  const grid = document.getElementById('plunder-grid');
+  try {
+    const resp = await fetch(API + '/api/plunder');
+    const data = await resp.json();
+    if (data.items.length === 0) {
+      grid.innerHTML = '<div class="empty">No shared plunder yet. Content gets shared when multiple crew members watch it!</div>';
+      return;
+    }
+    grid.innerHTML = data.items.map(function(item) {
+      const typeIcon = item.media_type === 'movie' ? '&#127916;' : '&#128250;';
+      let imgHtml;
+      if (item.poster_url) {
+        imgHtml = '<img class="poster-img" src="' + escapeAttr(item.poster_url) + '" alt="' + escapeAttr(item.title) + '" loading="lazy" onerror="this.parentElement.innerHTML=posterFallback(\'' + escapeAttr(item.title) + '\',\'' + item.media_type + '\')">';
+      } else {
+        imgHtml = '<div class="poster-fallback"><span class="icon">' + typeIcon + '</span><span class="title">' + escapeHtml(item.title) + '</span></div>';
+      }
+      return '<div class="poster-card promoted">' +
+        '<span class="badge-type">' + typeIcon + '</span>' +
+        imgHtml +
+        '<div class="poster-overlay">' +
+          '<div class="poster-title">' + escapeHtml(item.title) + '</div>' +
+          '<div class="poster-badges">' +
+            '<span class="poster-badge badge-size">' + item.size_display + '</span>' +
+            '<span class="poster-badge badge-promoted">Shared</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  } catch {
+    grid.innerHTML = '<div class="empty">Failed to load shared plunder</div>';
+  }
+}
+
 async function rescueContent(contentId) {
   try {
     const resp = await fetch(API + '/api/treasure/' + contentId + '/rescue', {method: 'POST'});
@@ -744,7 +1202,7 @@ async function loadActivity() {
       container.innerHTML = '<div class="empty">No recent activity</div>';
       return;
     }
-    container.innerHTML = data.events.map(ev => {
+    container.innerHTML = data.events.map(function(ev) {
       if (ev.type === 'promotion') {
         return '<div class="activity-item">&#9875; <span class="highlight">"' +
           escapeHtml(ev.title) + '"</span> promoted - <span class="freed">' +
@@ -762,6 +1220,8 @@ async function loadActivity() {
 // --- Scuttle ---
 function scuttle(contentId, title, sizeDisplay) {
   pendingScuttleId = contentId;
+  pendingScuttleAction = 'content';
+  pendingSeasonNumber = null;
   const plankDays = window._plankDays || 0;
   let msg;
   if (plankDays > 0) {
@@ -776,19 +1236,42 @@ function scuttle(contentId, title, sizeDisplay) {
   document.getElementById('scuttle-modal').classList.add('active');
 }
 
+function scuttleSeason(contentId, seasonNumber, title, sizeDisplay) {
+  pendingScuttleId = contentId;
+  pendingScuttleAction = 'season';
+  pendingSeasonNumber = seasonNumber;
+  const msg = 'Delete <strong>Season ' + seasonNumber + '</strong> of <strong>' +
+    escapeHtml(title) + '</strong> (' + sizeDisplay + ')? ' +
+    'This will permanently remove all episode files for this season.';
+  document.getElementById('scuttle-msg').innerHTML = msg;
+  document.getElementById('scuttle-modal').classList.add('active');
+}
+
 function closeScuttleModal() {
   document.getElementById('scuttle-modal').classList.remove('active');
   pendingScuttleId = null;
+  pendingScuttleAction = null;
+  pendingSeasonNumber = null;
 }
 
 async function confirmScuttle() {
   if (!pendingScuttleId) return;
   const id = pendingScuttleId;
+  const action = pendingScuttleAction;
+  const season = pendingSeasonNumber;
   closeScuttleModal();
+
   try {
-    const resp = await fetch(API + '/api/treasure/' + id + '/scuttle', {method: 'POST'});
+    let url;
+    if (action === 'season') {
+      url = apiUrl('/api/treasure/' + id + '/scuttle-season/' + season);
+    } else {
+      url = apiUrl('/api/treasure/' + id + '/scuttle');
+    }
+    const resp = await fetch(url, {method: 'POST'});
     const data = await resp.json();
     if (resp.ok) {
+      expandedContentId = null;
       loadDashboard();
     } else {
       alert(data.detail || 'Scuttle failed');
@@ -803,6 +1286,15 @@ function escapeHtml(str) {
   const d = document.createElement('div');
   d.textContent = str;
   return d.innerHTML;
+}
+
+function escapeAttr(str) {
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function posterFallback(title, mediaType) {
+  const icon = mediaType === 'movie' ? '&#127916;' : '&#128250;';
+  return '<div class="poster-fallback"><span class="icon">' + icon + '</span><span class="title">' + escapeHtml(title) + '</span></div>';
 }
 
 function daysSince(isoDate) {
@@ -868,13 +1360,11 @@ function renderObStep() {
   document.getElementById('ob-title').textContent = obSteps[obStep].title;
   document.getElementById('ob-body').textContent = obSteps[obStep].body;
 
-  // Dots
   const dotsHtml = obSteps.map(function(_, i) {
     return '<div class="onboarding-dot' + (i === obStep ? ' active' : '') + '"></div>';
   }).join('');
   document.getElementById('ob-dots').innerHTML = dotsHtml;
 
-  // Buttons
   document.getElementById('ob-prev').style.display = obStep > 0 ? 'inline-block' : 'none';
   const nextBtn = document.getElementById('ob-next');
   if (obStep === obSteps.length - 1) {

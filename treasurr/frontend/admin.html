@@ -676,7 +676,7 @@ function renderCrewTable() {
 
     html += '<tr>' +
       '<td><input type="checkbox" ' + checked + ' onchange="toggleUser(' + c.id + ', this.checked)"></td>' +
-      '<td><strong>' + esc(c.username) + '</strong>' + (c.is_admin ? ' <span class="dim">(admin)</span>' : '') + '</td>' +
+      '<td><a href="/?view_as=' + c.id + '" title="View dashboard as ' + esc(c.username) + '" style="color:var(--text);"><strong>' + esc(c.username) + '</strong></a>' + (c.is_admin ? ' <span class="dim">(admin)</span>' : '') + '</td>' +
       '<td class="mono">' + quotaLabel + '</td>' +
       '<td class="mono">' + c.used_display + '</td>' +
       '<td><div class="usage-bar"><div class="usage-bar-fill ' + barClass + '" style="width:' + Math.min(pct, 100) + '%"></div></div><span class="mono dim">' + pct + '%</span></td>' +
