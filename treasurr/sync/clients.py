@@ -262,8 +262,16 @@ class SonarrClient:
 
     async def get_episodes(self, series_id: int) -> list[dict]:
         """Fetch all episodes for a series. Returns raw episode data."""
-        data = await self._request("GET", "/episode", params={"seriesId": series_id})
+        data = await self._request("GET", "/episode", params={
+            "seriesId": series_id,
+            "includeEpisodeFile": "true",
+        })
         return data or []
+
+    async def get_queue(self) -> list[dict]:
+        """Fetch the download queue. Returns list of queue records."""
+        data = await self._request("GET", "/queue", params={"pageSize": 100})
+        return (data or {}).get("records", [])
 
     async def delete_episode_file(self, file_id: int) -> None:
         """Delete a single episode file by its file ID."""
@@ -333,6 +341,11 @@ class RadarrClient:
 
     async def delete(self, movie_id: int, delete_files: bool = True) -> None:
         await self._request("DELETE", f"/movie/{movie_id}", params={"deleteFiles": delete_files})
+
+    async def get_queue(self) -> list[dict]:
+        """Fetch the download queue. Returns list of queue records."""
+        data = await self._request("GET", "/queue", params={"pageSize": 100})
+        return (data or {}).get("records", [])
 
     async def get_diskspace(self) -> list[dict]:
         """Get disk space info from Radarr. Returns list of {path, freeSpace, totalSpace}."""

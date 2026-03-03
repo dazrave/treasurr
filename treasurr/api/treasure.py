@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, HTTPException, Request
 
 from treasurr.api.auth import get_current_user, get_effective_user
@@ -13,6 +15,13 @@ from treasurr.engine.quota import format_bytes
 router = APIRouter(prefix="/api", tags=["treasure"])
 
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w300"
+
+DEFAULT_SERVER_MESSAGE = (
+    "Ahoy, crew! Welcome aboard. This be yer treasure chest - where ye can see "
+    "what's takin' up space on the ship. When enough of the crew watches somethin', "
+    "it becomes shared plunder and stops countin' against yer quota. Keep things "
+    "tidy and everyone sails happy!"
+)
 
 
 def _get_db(request: Request) -> Database:
@@ -51,11 +60,34 @@ async def get_treasure_summary(request: Request) -> dict:
     display_mode = db_settings.get("display_mode", config.quotas.display_mode)
     plank_mode = db_settings.get("plank_mode", config.quotas.plank_mode)
     plank_days = int(db_settings.get("plank_days", str(config.quotas.plank_days)))
+    promotion_threshold = int(db_settings.get(
+        "promotion_threshold", str(config.quotas.promotion_threshold),
+    ))
 
     include_splits = promotion_mode == "split_the_loot"
     summary = db.get_quota_summary(effective.id, include_splits=include_splits, plank_mode=plank_mode)
     if summary is None:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # Calculate reserved bytes from download queue
+    reserved_bytes = 0
+    try:
+        queue_raw = db.get_setting("download_queue", "[]")
+        queue_items = json.loads(queue_raw)
+        content_items = db.get_user_owned_content(effective.id)
+        owned_arr_ids = set()
+        for ci in content_items:
+            if ci.content.sonarr_id:
+                owned_arr_ids.add(("sonarr", ci.content.sonarr_id))
+            if ci.content.radarr_id:
+                owned_arr_ids.add(("radarr", ci.content.radarr_id))
+        for qi in queue_items:
+            if (qi.get("arr_type"), qi.get("arr_id")) in owned_arr_ids:
+                reserved_bytes += qi.get("sizeleft_bytes", 0)
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    server_message = db.get_setting("server_message", DEFAULT_SERVER_MESSAGE)
 
     result = {
         "user_id": effective.id,
@@ -78,6 +110,10 @@ async def get_treasure_summary(request: Request) -> dict:
         "plank_days": plank_days,
         "plank_mode": plank_mode,
         "onboarded": effective.onboarded,
+        "promotion_threshold": promotion_threshold,
+        "server_message": server_message,
+        "reserved_bytes": reserved_bytes,
+        "reserved_display": format_bytes(reserved_bytes) if reserved_bytes > 0 else "",
     }
 
     # Add view_as metadata if admin is viewing as another user
@@ -124,30 +160,74 @@ async def get_treasure_chest(request: Request) -> dict:
     """Get the current user's owned content list with poster and season data."""
     effective, real = await _require_effective_user(request)
     db = _get_db(request)
+    config = _get_config(request)
     items = db.get_user_owned_content(effective.id)
+
+    # Load download queue for ghost cards
+    download_map: dict[tuple[str, int], dict] = {}
+    try:
+        queue_raw = db.get_setting("download_queue", "[]")
+        queue_items = json.loads(queue_raw)
+        for qi in queue_items:
+            key = (qi.get("arr_type"), qi.get("arr_id"))
+            if key[1] is not None:
+                download_map[key] = qi
+    except (json.JSONDecodeError, TypeError):
+        pass
 
     result_items = []
     for item in items:
-        # Skip zero-size items (requested but not yet downloaded)
-        if item.content.size_bytes <= 0:
+        # Check if this item is currently downloading
+        downloading = False
+        download_info = {}
+        if item.content.sonarr_id:
+            dl = download_map.get(("sonarr", item.content.sonarr_id))
+            if dl:
+                downloading = True
+                download_info = dl
+        if not downloading and item.content.radarr_id:
+            dl = download_map.get(("radarr", item.content.radarr_id))
+            if dl:
+                downloading = True
+                download_info = dl
+
+        # Skip zero-size items unless they are downloading
+        if item.content.size_bytes <= 0 and not downloading:
             continue
-        quality, quality_note = _derive_quality(item.content.size_bytes, item.content.media_type)
+
+        quality, quality_note = _derive_quality(
+            item.content.size_bytes or download_info.get("size_bytes", 0),
+            item.content.media_type,
+        )
 
         entry = {
             "content_id": item.content.id,
             "title": item.content.title,
             "media_type": item.content.media_type,
             "size_bytes": item.content.size_bytes,
-            "size_display": format_bytes(item.content.size_bytes),
+            "size_display": format_bytes(item.content.size_bytes) if item.content.size_bytes > 0 else "",
             "poster_url": _poster_url(item.content.poster_path),
             "quality": quality,
             "quality_note": quality_note,
             "status": item.ownership.status,
             "owned_at": item.ownership.owned_at,
             "promoted_at": item.ownership.promoted_at,
+            "buried_at": item.ownership.buried_at,
             "unique_viewers": item.unique_viewers,
-            "can_scuttle": item.ownership.status == "owned",
+            "can_scuttle": item.ownership.status in ("owned", "buried"),
+            "can_bury": item.ownership.status == "owned",
+            "is_buried": item.ownership.status == "buried",
         }
+
+        # Download ghost card info
+        if downloading:
+            entry["downloading"] = True
+            entry["download_progress"] = download_info.get("progress", 0)
+            entry["download_eta"] = download_info.get("eta", "")
+            entry["download_size_bytes"] = download_info.get("size_bytes", 0)
+            entry["download_size_display"] = format_bytes(download_info.get("size_bytes", 0))
+        else:
+            entry["downloading"] = False
 
         # Include season data for shows
         if item.content.media_type == "show":
@@ -184,6 +264,11 @@ async def scuttle(request: Request, content_id: int) -> dict:
     effective, _ = await _require_effective_user(request)
     db = _get_db(request)
     config = _get_config(request)
+
+    # If buried, unbury first so scuttle can proceed
+    ownership = db.get_ownership(content_id)
+    if ownership and ownership.status == "buried" and ownership.owner_user_id == effective.id:
+        db.unbury_content(content_id)
 
     result = await scuttle_content(db, config, content_id, effective.id)
 
@@ -238,6 +323,15 @@ async def get_plank_content(request: Request) -> dict:
     plank_days = int(db_settings.get("plank_days", str(config.quotas.plank_days)))
     plank_mode = db_settings.get("plank_mode", config.quotas.plank_mode)
 
+    # Resolve owner usernames
+    owner_cache: dict[int, str] = {}
+
+    def _get_owner_username(owner_id: int) -> str:
+        if owner_id not in owner_cache:
+            user = db.get_user(owner_id)
+            owner_cache[owner_id] = user.plex_username if user else "Unknown"
+        return owner_cache[owner_id]
+
     return {
         "plank_mode": plank_mode,
         "plank_days": plank_days,
@@ -250,6 +344,7 @@ async def get_plank_content(request: Request) -> dict:
                 "size_display": format_bytes(item.content.size_bytes),
                 "poster_url": _poster_url(item.content.poster_path),
                 "owner_user_id": item.ownership.owner_user_id,
+                "owner_username": _get_owner_username(item.ownership.owner_user_id),
                 "plank_started_at": item.ownership.plank_started_at,
                 "unique_viewers": item.unique_viewers,
             }
@@ -277,12 +372,34 @@ async def rescue(request: Request, content_id: int) -> dict:
     }
 
 
+@router.post("/treasure/{content_id}/bury")
+async def bury_toggle(request: Request, content_id: int) -> dict:
+    """Toggle bury/unbury on content to protect from auto-cleanup."""
+    user = await _require_user(request)
+    db = _get_db(request)
+
+    ownership = db.get_ownership(content_id)
+    if ownership is None:
+        raise HTTPException(status_code=404, detail="Content not found")
+    if ownership.owner_user_id != user.id:
+        raise HTTPException(status_code=403, detail="You don't own this content")
+
+    if ownership.status == "buried":
+        db.unbury_content(content_id)
+        return {"buried": False, "message": "Treasure unburied - auto-cleanup can remove it again"}
+    if ownership.status == "owned":
+        db.bury_content(content_id)
+        return {"buried": True, "message": "Treasure buried! Protected from auto-cleanup"}
+
+    raise HTTPException(status_code=400, detail="Content must be owned to bury/unbury")
+
+
 @router.get("/plunder")
 async def get_shared_plunder(request: Request) -> dict:
-    """Get all promoted (shared plunder) content."""
-    await _require_user(request)
+    """Get promoted content relevant to the current user."""
+    user = await _require_user(request)
     db = _get_db(request)
-    items = db.get_promoted_content()
+    items = db.get_relevant_promoted_content(user.id)
 
     return {
         "items": [

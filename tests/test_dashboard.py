@@ -292,3 +292,176 @@ class TestPlunderWithPosters:
         data = resp.json()
         assert len(data["items"]) == 1
         assert data["items"][0]["poster_url"] == "https://image.tmdb.org/t/p/w300/shared.jpg"
+
+
+class TestBuryContent:
+    def test_bury_owned_content(self, auth_client, app_and_db):
+        _, db, user, _, _ = app_and_db
+        content = db.upsert_content(title="Bury Me", media_type="movie", tmdb_id=60, size_bytes=5_000_000_000)
+        db.set_ownership(content.id, user.id)
+
+        resp = auth_client.post(f"/api/treasure/{content.id}/bury")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["buried"] is True
+
+        # Verify DB state
+        ownership = db.get_ownership(content.id)
+        assert ownership.status == "buried"
+        assert ownership.buried_at is not None
+
+    def test_unbury_buried_content(self, auth_client, app_and_db):
+        _, db, user, _, _ = app_and_db
+        content = db.upsert_content(title="Unbury Me", media_type="movie", tmdb_id=61, size_bytes=5_000_000_000)
+        db.set_ownership(content.id, user.id)
+        db.bury_content(content.id)
+
+        resp = auth_client.post(f"/api/treasure/{content.id}/bury")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["buried"] is False
+
+        ownership = db.get_ownership(content.id)
+        assert ownership.status == "owned"
+        assert ownership.buried_at is None
+
+    def test_bury_not_owned(self, auth_client, app_and_db):
+        _, db, user, admin, _ = app_and_db
+        content = db.upsert_content(title="Not Mine", media_type="movie", tmdb_id=62, size_bytes=5_000_000_000)
+        db.set_ownership(content.id, admin.id)
+
+        resp = auth_client.post(f"/api/treasure/{content.id}/bury")
+        assert resp.status_code == 403
+
+    def test_buried_content_in_chest(self, auth_client, app_and_db):
+        _, db, user, _, _ = app_and_db
+        content = db.upsert_content(title="Buried Gold", media_type="movie", tmdb_id=63, size_bytes=5_000_000_000)
+        db.set_ownership(content.id, user.id)
+        db.bury_content(content.id)
+
+        resp = auth_client.get("/api/treasure/chest")
+        data = resp.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["is_buried"] is True
+        assert data["items"][0]["can_scuttle"] is True  # buried can still be scuttled
+
+    def test_buried_excluded_from_retention(self, db: Database):
+        """Buried content should not appear in retention-eligible content."""
+        user = db.upsert_user(plex_user_id="rtest", plex_username="rtest", quota_bytes=500_000_000_000)
+        content = db.upsert_content(title="Buried", media_type="movie", tmdb_id=64, size_bytes=5_000_000_000)
+        db.set_ownership(content.id, user.id)
+        db.bury_content(content.id)
+        db.add_watch_event(content.id, user.id, "2020-01-01T00:00:00Z", completed=True)
+
+        eligible = db.get_retention_eligible_content(user.id, scuttle_days=1, min_retention_days=0)
+        assert len(eligible) == 0
+
+    def test_buried_still_promotable(self, db: Database):
+        """Buried content should appear in promotion-eligible content."""
+        user = db.upsert_user(plex_user_id="ptest", plex_username="ptest", quota_bytes=500_000_000_000)
+        content = db.upsert_content(title="Buried Promo", media_type="movie", tmdb_id=65, size_bytes=5_000_000_000)
+        db.set_ownership(content.id, user.id)
+        db.bury_content(content.id)
+
+        candidates = db.get_owned_content_for_promotion()
+        content_ids = [c.content.id for c in candidates]
+        assert content.id in content_ids
+
+
+class TestPlunderFiltering:
+    def test_plunder_shows_owned_promoted(self, auth_client, app_and_db):
+        """Promoted content owned by user should appear in plunder."""
+        _, db, user, _, _ = app_and_db
+        content = db.upsert_content(title="My Promoted", media_type="movie", tmdb_id=70, size_bytes=5_000_000_000)
+        db.set_ownership(content.id, user.id)
+        db.promote_content(content.id)
+
+        resp = auth_client.get("/api/plunder")
+        data = resp.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["title"] == "My Promoted"
+
+    def test_plunder_shows_watched_promoted(self, auth_client, app_and_db):
+        """Promoted content user watched should appear in plunder."""
+        _, db, user, admin, _ = app_and_db
+        content = db.upsert_content(title="Watched Promo", media_type="movie", tmdb_id=71, size_bytes=5_000_000_000)
+        db.set_ownership(content.id, admin.id)
+        db.promote_content(content.id)
+        db.add_watch_event(content.id, user.id, "2025-01-01T00:00:00Z", completed=True)
+
+        resp = auth_client.get("/api/plunder")
+        data = resp.json()
+        assert len(data["items"]) == 1
+
+    def test_plunder_hides_irrelevant(self, auth_client, app_and_db):
+        """Promoted content user didn't own or watch should not appear."""
+        _, db, user, admin, _ = app_and_db
+        content = db.upsert_content(title="Not Mine", media_type="movie", tmdb_id=72, size_bytes=5_000_000_000)
+        db.set_ownership(content.id, admin.id)
+        db.promote_content(content.id)
+
+        resp = auth_client.get("/api/plunder")
+        data = resp.json()
+        assert len(data["items"]) == 0
+
+
+class TestServerMessage:
+    def test_treasure_includes_server_message(self, auth_client, app_and_db):
+        resp = auth_client.get("/api/treasure")
+        data = resp.json()
+        assert "server_message" in data
+        assert len(data["server_message"]) > 0
+
+    def test_admin_can_set_server_message(self, admin_client, app_and_db):
+        _, db, _, _, _ = app_and_db
+        resp = admin_client.put("/api/admin/settings", json={"server_message": "Test message!"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["server_message"] == "Test message!"
+
+    def test_treasure_shows_custom_message(self, auth_client, admin_client, app_and_db):
+        admin_client.put("/api/admin/settings", json={"server_message": "Custom MOTD"})
+        resp = auth_client.get("/api/treasure")
+        data = resp.json()
+        assert data["server_message"] == "Custom MOTD"
+
+    def test_promotion_threshold_in_treasure(self, auth_client, app_and_db):
+        resp = auth_client.get("/api/treasure")
+        data = resp.json()
+        assert "promotion_threshold" in data
+        assert data["promotion_threshold"] == 2
+
+
+class TestAdminActivityFeed:
+    def test_activity_feed_returns_events(self, admin_client, app_and_db):
+        _, db, user, admin, _ = app_and_db
+        # Create a watch event
+        content = db.upsert_content(title="Watched", media_type="movie", tmdb_id=80, size_bytes=5_000_000_000)
+        db.set_ownership(content.id, admin.id)
+        db.add_watch_event(content.id, user.id, "2025-01-01T00:00:00Z", completed=True)
+
+        resp = admin_client.get("/api/admin/activity?limit=10")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "events" in data
+        assert len(data["events"]) > 0
+        assert data["events"][0]["type"] == "watch"
+        assert data["events"][0]["actor"] == "testpirate"
+        assert data["events"][0]["owner_username"] == "captain"
+
+    def test_activity_feed_requires_admin(self, auth_client):
+        resp = auth_client.get("/api/admin/activity")
+        assert resp.status_code == 403
+
+
+class TestPlankWithPosters:
+    def test_plank_includes_owner_username(self, auth_client, app_and_db):
+        _, db, user, _, _ = app_and_db
+        content = db.upsert_content(title="Planked", media_type="movie", tmdb_id=90, size_bytes=5_000_000_000)
+        db.set_ownership(content.id, user.id)
+        db.plank_content(content.id)
+
+        resp = auth_client.get("/api/plank")
+        data = resp.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["owner_username"] == "testpirate"

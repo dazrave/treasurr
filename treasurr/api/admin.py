@@ -144,6 +144,8 @@ async def get_settings(request: Request) -> dict:
 
     db_settings = db.get_all_settings()
 
+    from treasurr.api.treasure import DEFAULT_SERVER_MESSAGE
+
     return {
         "promotion_mode": db_settings.get("promotion_mode", config.quotas.promotion_mode),
         "shared_plunder_max_bytes": int(db_settings.get("shared_plunder_max_bytes", str(config.quotas.shared_plunder_max_bytes))),
@@ -152,6 +154,7 @@ async def get_settings(request: Request) -> dict:
         "plank_mode": db_settings.get("plank_mode", config.quotas.plank_mode),
         "plank_days": int(db_settings.get("plank_days", str(config.quotas.plank_days))),
         "plank_rescue_action": db_settings.get("plank_rescue_action", config.quotas.plank_rescue_action),
+        "server_message": db_settings.get("server_message", DEFAULT_SERVER_MESSAGE),
     }
 
 
@@ -204,6 +207,12 @@ async def update_settings(request: Request) -> dict:
         if body["plank_rescue_action"] not in valid_rescue_actions:
             raise HTTPException(status_code=400, detail=f"Invalid plank_rescue_action. Must be one of: {valid_rescue_actions}")
         db.set_setting("plank_rescue_action", body["plank_rescue_action"])
+
+    if "server_message" in body:
+        msg = str(body["server_message"]).strip()
+        if len(msg) > 1000:
+            raise HTTPException(status_code=400, detail="Server message must be under 1000 characters")
+        db.set_setting("server_message", msg)
 
     # Return updated settings
     return await get_settings(request)
@@ -277,6 +286,33 @@ async def get_stats(request: Request) -> dict:
         "disk_free_bytes": disk_space.get("free_bytes", 0),
         "disk_free_display": format_bytes(disk_space.get("free_bytes", 0)),
         "user_storage": user_storage,
+    }
+
+
+@router.get("/activity")
+async def get_admin_activity(request: Request) -> dict:
+    """Get admin activity feed for the Ship's Log."""
+    await _require_admin(request)
+    db = _get_db(request)
+
+    limit = int(request.query_params.get("limit", "50"))
+    events = db.get_admin_activity_feed(limit=min(limit, 200))
+
+    return {
+        "events": [
+            {
+                "type": ev["type"],
+                "at": ev["at"],
+                "actor": ev["actor"],
+                "title": ev["title"],
+                "media_type": ev["media_type"],
+                "owner_username": ev["owner_username"],
+                "size_bytes": ev["size_bytes"],
+                "size_display": format_bytes(ev["size_bytes"]) if ev["size_bytes"] else None,
+                "viewers": ev["viewers"],
+            }
+            for ev in events
+        ],
     }
 
 

@@ -11,6 +11,7 @@ from treasurr.engine.plank import run_plank_checks
 from treasurr.engine.promotion import run_promotions
 from treasurr.engine.retention import run_retention_checks
 from treasurr.sync.request_sync import sync_requests
+from treasurr.sync.queue_sync import sync_download_queue
 from treasurr.sync.size_sync import sync_arr_ids, sync_disk_space, sync_posters, sync_seasons, sync_sizes
 from treasurr.sync.watch_sync import sync_users_from_tautulli, sync_watch_history
 
@@ -62,6 +63,12 @@ async def run_full_sync(db: Database, config: Config) -> dict:
     except Exception as e:
         logger.error("Poster sync failed: %s", e)
         results["posters_error"] = str(e)
+
+    try:
+        results["download_queue"] = await sync_download_queue(db, config)
+    except Exception as e:
+        logger.error("Download queue sync failed: %s", e)
+        results["download_queue_error"] = str(e)
 
     try:
         results["watches"] = await sync_watch_history(db, config)

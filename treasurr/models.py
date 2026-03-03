@@ -48,10 +48,11 @@ class ContentOwnership:
     id: int
     content_id: int
     owner_user_id: int
-    status: str = "owned"  # 'owned', 'promoted', 'released', 'plank'
+    status: str = "owned"  # 'owned', 'promoted', 'released', 'plank', 'buried'
     owned_at: str = ""
     promoted_at: str | None = None
     plank_started_at: str | None = None
+    buried_at: str | None = None
 
 
 @dataclass(frozen=True)

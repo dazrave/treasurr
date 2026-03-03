@@ -115,6 +115,36 @@ a:hover { color: var(--gold-bright); }
 /* Main content */
 .main { max-width: 1200px; margin: 0 auto; padding: 24px; }
 
+/* MOTD Banner */
+.motd-banner {
+  background: var(--surface);
+  border: 1px solid var(--gold-dim);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  position: relative;
+  border-left: 4px solid var(--gold);
+}
+.motd-banner p {
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  padding-right: 24px;
+}
+.motd-dismiss {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.motd-dismiss:hover { color: var(--text); background: var(--surface-2); }
+
 /* Quota bar */
 .quota-card {
   background: var(--surface);
@@ -142,12 +172,14 @@ a:hover { color: var(--gold-bright); }
   color: var(--text-dim);
 }
 .quota-numbers strong { color: var(--text); }
+.quota-numbers .reserved { color: var(--blue); font-size: 12px; }
 .quota-bar-bg {
   height: 24px;
   background: var(--surface-2);
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--border);
+  display: flex;
 }
 .quota-bar-fill {
   height: 100%;
@@ -158,6 +190,12 @@ a:hover { color: var(--gold-bright); }
 }
 .quota-bar-fill.warning { background: linear-gradient(90deg, #d29922, #e3b341); }
 .quota-bar-fill.danger { background: linear-gradient(90deg, #da3633, #f85149); }
+.quota-bar-reserved {
+  height: 100%;
+  background: repeating-linear-gradient(45deg, var(--blue), var(--blue) 4px, transparent 4px, transparent 8px);
+  opacity: 0.4;
+  transition: width 0.6s ease;
+}
 .quota-percent {
   text-align: right;
   font-family: var(--font-mono);
@@ -184,6 +222,13 @@ a:hover { color: var(--gold-bright); }
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.section-desc {
+  padding: 10px 20px;
+  font-size: 13px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  line-height: 1.5;
 }
 
 /* Filter bar */
@@ -249,11 +294,13 @@ a:hover { color: var(--gold-bright); }
   box-shadow: 0 8px 24px rgba(0,0,0,0.4);
   z-index: 2;
 }
-.poster-card.expanded {
-  border-color: var(--gold);
-}
-.poster-card.promoted {
-  border-color: var(--promoted);
+.poster-card.expanded { border-color: var(--gold); }
+.poster-card.promoted { border-color: var(--promoted); }
+.poster-card.buried { border-color: var(--gold-dim); }
+.poster-card.plank-card { border-color: var(--red); }
+.poster-card.downloading {
+  opacity: 0.6;
+  border-color: var(--blue);
 }
 .poster-img {
   width: 100%;
@@ -346,6 +393,53 @@ a:hover { color: var(--gold-bright); }
   font-size: 11px;
   color: var(--text-dim);
 }
+.badge-buried {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0,0,0,0.7);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+.badge-plank-countdown {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(248,81,73,0.85);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+}
+.badge-download {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.8);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--blue);
+  text-align: center;
+  white-space: nowrap;
+}
+.download-progress-bar {
+  width: 80px;
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: 2px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+.download-progress-fill {
+  height: 100%;
+  background: var(--blue);
+  border-radius: 2px;
+  transition: width 0.3s;
+}
 
 /* Detail panel (expands below card row) */
 .detail-panel {
@@ -376,6 +470,21 @@ a:hover { color: var(--gold-bright); }
   font-size: 13px;
   color: var(--text-dim);
   margin-top: 4px;
+}
+.detail-viewer-text {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+.detail-viewer-text .promotion-hint { color: var(--gold); }
+.detail-viewer-text .shared-text { color: var(--promoted); font-weight: 600; }
+.detail-buried-note {
+  font-size: 12px;
+  color: var(--gold);
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 .detail-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
@@ -415,7 +524,7 @@ a:hover { color: var(--gold-bright); }
 }
 .season-scuttle:hover { background: var(--red); color: #fff; }
 
-/* Content list (for plank, plunder, activity) */
+/* Content list (for activity) */
 .content-item {
   display: flex;
   align-items: center;
@@ -476,17 +585,18 @@ a:hover { color: var(--gold-bright); }
   transition: all 0.15s;
 }
 .rescue-btn:hover { background: var(--green); color: #fff; }
-.plank-countdown {
-  font-family: var(--font-mono);
+.bury-btn {
+  padding: 4px 10px;
   font-size: 12px;
-  color: var(--red);
-  font-weight: 600;
+  border: 1px solid var(--gold-dim);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--gold);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
 }
-.plank-adrift-note {
-  font-size: 11px;
-  color: var(--blue);
-  font-style: italic;
-}
+.bury-btn:hover { background: var(--gold-dim); color: var(--bg); }
 
 /* Activity */
 .activity-item {
@@ -619,6 +729,64 @@ a:hover { color: var(--gold-bright); }
   vertical-align: middle;
 }
 
+/* Toast notifications */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  animation: toastIn 0.3s ease;
+  max-width: 360px;
+}
+.toast.success { background: #1a7f37; }
+.toast.error { background: #cf222e; }
+.toast.info { background: #614e1a; color: var(--gold-bright); }
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(16px); }
+}
+
+/* Tooltips */
+[data-tooltip] {
+  position: relative;
+}
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+[data-tooltip]:hover::after {
+  opacity: 1;
+}
+
 @media (max-width: 768px) {
   .main { padding: 12px; }
   .poster-grid {
@@ -630,6 +798,8 @@ a:hover { color: var(--gold-bright); }
   .filter-bar { padding: 10px 12px; }
   .header { padding: 12px 16px; }
   .login-screen h1 { font-size: 32px; }
+  .toast-container { left: 12px; right: 12px; }
+  .toast { max-width: 100%; }
 }
 
 @media (max-width: 480px) {
@@ -683,16 +853,23 @@ a:hover { color: var(--gold-bright); }
     </div>
 
     <div class="main">
+      <!-- MOTD Banner -->
+      <div class="motd-banner" id="motd-banner" style="display:none;">
+        <p id="motd-text"></p>
+        <button class="motd-dismiss" onclick="dismissMotd()" title="Dismiss">&#10005;</button>
+      </div>
+
       <!-- Quota Card -->
-      <div class="quota-card">
+      <div class="quota-card" data-tooltip="Your storage allowance. Request less or scuttle to free space.">
         <div class="quota-header">
           <div class="quota-title">Your Treasure Chest</div>
           <div class="quota-numbers">
-            <strong id="quota-used">0 GB</strong> / <span id="quota-total">500 GB</span>
+            <strong id="quota-used">0 GB</strong> <span id="quota-reserved"></span> / <span id="quota-total">500 GB</span>
           </div>
         </div>
         <div class="quota-bar-bg">
           <div class="quota-bar-fill" id="quota-bar" style="width: 0%"></div>
+          <div class="quota-bar-reserved" id="quota-bar-reserved" style="width: 0%"></div>
         </div>
         <div class="quota-percent" id="quota-percent">0%</div>
       </div>
@@ -721,12 +898,13 @@ a:hover { color: var(--gold-bright); }
           <span>Your Cargo</span>
           <span id="cargo-count"></span>
         </div>
+        <div class="section-desc" id="cargo-desc">Everything you've requested on the server. It counts against your storage quota until the crew watches it.</div>
         <div class="filter-bar">
           <span class="filter-label">Type:</span>
           <div class="filter-group" id="type-filters">
-            <button class="filter-btn active" data-filter="all" onclick="setTypeFilter('all')">All</button>
-            <button class="filter-btn" data-filter="movie" onclick="setTypeFilter('movie')">Movies</button>
-            <button class="filter-btn" data-filter="show" onclick="setTypeFilter('show')">Shows</button>
+            <button class="filter-btn active" data-filter="all" onclick="setTypeFilter('all')" data-tooltip="Show all content">All</button>
+            <button class="filter-btn" data-filter="movie" onclick="setTypeFilter('movie')" data-tooltip="Filter by movies">Movies</button>
+            <button class="filter-btn" data-filter="show" onclick="setTypeFilter('show')" data-tooltip="Filter by TV shows">Shows</button>
           </div>
           <span class="filter-label" style="margin-left:auto;">Sort:</span>
           <select class="sort-select" id="sort-select" onchange="setSortOrder(this.value)">
@@ -750,12 +928,14 @@ a:hover { color: var(--gold-bright); }
           <span>Walking the Plank</span>
           <span id="plank-mode-label"></span>
         </div>
-        <div id="plank-list"></div>
+        <div class="section-desc" id="plank-desc"></div>
+        <div id="plank-grid" class="poster-grid"></div>
       </div>
 
       <!-- Shared Plunder -->
       <div class="section" id="plunder-section">
         <div class="section-header">Shared Plunder</div>
+        <div class="section-desc" id="plunder-desc">Content that enough crew members watched - it's shared now and doesn't count against anyone's quota.</div>
         <div id="plunder-grid" class="poster-grid">
           <div class="loading">Loading shared plunder...</div>
         </div>
@@ -764,6 +944,7 @@ a:hover { color: var(--gold-bright); }
       <!-- Recent Activity -->
       <div class="section">
         <div class="section-header">Recent Activity</div>
+        <div class="section-desc">What's been happening on the ship lately.</div>
         <div id="activity-list">
           <div class="loading">Loading activity...</div>
         </div>
@@ -777,6 +958,9 @@ a:hover { color: var(--gold-bright); }
     </div>
   </div>
 </div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
 
 <!-- Scuttle Confirmation Modal -->
 <div class="modal-overlay" id="scuttle-modal">
@@ -800,6 +984,8 @@ let cargoItems = [];
 let currentTypeFilter = 'all';
 let currentSort = 'name-asc';
 let expandedContentId = null;
+let promotionThreshold = 2;
+let motdDismissed = false;
 
 // Get view_as param from URL
 function getViewAsParam() {
@@ -814,6 +1000,26 @@ function apiUrl(path) {
     return API + path + sep + 'view_as=' + va;
   }
   return API + path;
+}
+
+// --- Toast ---
+function showToast(message, type) {
+  type = type || 'info';
+  var container = document.getElementById('toast-container');
+  var toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(function() {
+    toast.style.animation = 'toastOut 0.3s ease forwards';
+    setTimeout(function() { toast.remove(); }, 300);
+  }, 3000);
+}
+
+// --- MOTD ---
+function dismissMotd() {
+  motdDismissed = true;
+  document.getElementById('motd-banner').style.display = 'none';
 }
 
 // --- Auth ---
@@ -858,7 +1064,7 @@ async function startPlexLogin() {
     const authWindow = window.open(data.auth_url, 'PlexAuth', 'width=800,height=600');
     pollForAuth(data.pin_id, authWindow);
   } catch (e) {
-    alert('Failed to start Plex login: ' + e.message);
+    showToast('Failed to start Plex login: ' + e.message, 'error');
   }
 }
 
@@ -908,6 +1114,8 @@ async function loadQuota() {
 
     window._displayMode = data.display_mode || 'exact';
     window._plankDays = data.plank_days || 0;
+    window._plankMode = data.plank_mode || 'adrift';
+    promotionThreshold = data.promotion_threshold || 2;
 
     let usedText = data.used_display;
     if (data.promotion_mode === 'split_the_loot' && data.split_display) {
@@ -916,6 +1124,18 @@ async function loadQuota() {
     document.getElementById('quota-used').textContent = usedText;
     document.getElementById('quota-total').textContent = data.quota_display;
     document.getElementById('quota-percent').textContent = data.usage_percent + '%';
+
+    // Reserved bytes display
+    var reservedEl = document.getElementById('quota-reserved');
+    var reservedBar = document.getElementById('quota-bar-reserved');
+    if (data.reserved_bytes > 0) {
+      reservedEl.innerHTML = '<span class="reserved">(+ ' + data.reserved_display + ' incoming)</span>';
+      var reservedPct = (data.reserved_bytes / data.total_bytes) * 100;
+      reservedBar.style.width = Math.min(reservedPct, 100 - data.usage_percent) + '%';
+    } else {
+      reservedEl.textContent = '';
+      reservedBar.style.width = '0%';
+    }
 
     const bar = document.getElementById('quota-bar');
     bar.style.width = Math.min(data.usage_percent, 100) + '%';
@@ -933,6 +1153,19 @@ async function loadQuota() {
       retNote.textContent = 'Your admin requires content to stay for at least ' + data.min_retention_days + ' days.';
     } else {
       retNote.textContent = 'Automatically remove content after you finish watching it.';
+    }
+
+    // MOTD
+    if (data.server_message && !motdDismissed) {
+      document.getElementById('motd-text').textContent = data.server_message;
+      document.getElementById('motd-banner').style.display = 'block';
+    }
+
+    // Plunder description with threshold
+    var plunderDesc = document.getElementById('plunder-desc');
+    plunderDesc.textContent = "Content that enough crew members watched - it's shared now and doesn't count against anyone's quota.";
+    if (promotionThreshold > 0) {
+      plunderDesc.textContent += " When " + promotionThreshold + " crew members watch something, it becomes shared.";
     }
   } catch { /* silent */ }
 }
@@ -975,7 +1208,6 @@ function renderCargo() {
 
   if (items.length === 0) {
     grid.innerHTML = '<div class="empty">No content matches your filter.</div>';
-    // Remove any detail panel
     const existing = container.querySelector('.detail-panel');
     if (existing) existing.remove();
     return;
@@ -984,8 +1216,11 @@ function renderCargo() {
   grid.innerHTML = items.map(function(item) {
     const isExpanded = expandedContentId === item.content_id;
     const typeIcon = item.media_type === 'movie' ? '&#127916;' : '&#128250;';
-    const viewerText = item.unique_viewers > 0 ? item.unique_viewers + ' &#128065;' : '';
+    const viewerCount = item.unique_viewers || 0;
+    const viewerText = viewerCount > 0 ? viewerCount + ' &#128065;' : '';
     const promotedClass = item.status === 'promoted' ? ' promoted' : '';
+    const buriedClass = item.is_buried ? ' buried' : '';
+    const downloadingClass = item.downloading ? ' downloading' : '';
     const expandedClass = isExpanded ? ' expanded' : '';
 
     let imgHtml;
@@ -995,18 +1230,37 @@ function renderCargo() {
       imgHtml = '<div class="poster-fallback"><span class="icon">' + typeIcon + '</span><span class="title">' + escapeHtml(item.title) + '</span></div>';
     }
 
-    let badges = '<span class="poster-badge badge-size">' + item.size_display + '</span>';
+    let badges = '';
+    if (item.size_display) {
+      badges += '<span class="poster-badge badge-size">' + item.size_display + '</span>';
+    }
     if (item.quality) {
-      badges += '<span class="poster-badge badge-quality">' + item.quality + '</span>';
+      badges += '<span class="poster-badge badge-quality" data-tooltip="Estimated quality based on file size">' + item.quality + '</span>';
     }
     if (item.status === 'promoted') {
-      badges += '<span class="poster-badge badge-promoted">Shared</span>';
+      badges += '<span class="poster-badge badge-promoted" data-tooltip="Shared with the crew - doesn\'t count against your quota">Shared</span>';
     }
 
-    return '<div class="poster-card' + promotedClass + expandedClass + '" data-id="' + item.content_id + '" onclick="toggleDetail(' + item.content_id + ')">' +
-      '<span class="badge-type">' + typeIcon + '</span>' +
-      (viewerText ? '<span class="badge-viewers">' + viewerText + '</span>' : '') +
+    // Buried badge
+    var buriedBadge = item.is_buried ? '<span class="badge-buried" data-tooltip="Protected from auto-cleanup">&#128274;</span>' : '';
+    // Type badge - only show if not buried (buried takes the spot)
+    var typeBadge = !item.is_buried ? '<span class="badge-type">' + typeIcon + '</span>' : '';
+
+    // Download overlay
+    var downloadOverlay = '';
+    if (item.downloading) {
+      var eta = item.download_eta ? ' - ' + item.download_eta : '';
+      downloadOverlay = '<div class="badge-download">Downloading... ' + item.download_progress + '%' + eta +
+        '<div class="download-progress-bar"><div class="download-progress-fill" style="width:' + item.download_progress + '%"></div></div>' +
+        (item.download_size_display ? '<div style="font-size:10px;margin-top:2px;">' + item.download_size_display + ' expected</div>' : '') +
+        '</div>';
+    }
+
+    return '<div class="poster-card' + promotedClass + buriedClass + downloadingClass + expandedClass + '" data-id="' + item.content_id + '" onclick="toggleDetail(' + item.content_id + ')">' +
+      typeBadge + buriedBadge +
+      (viewerText ? '<span class="badge-viewers" data-tooltip="Crew members who watched this">' + viewerText + '</span>' : '') +
       imgHtml +
+      downloadOverlay +
       '<div class="poster-overlay">' +
         '<div class="poster-title">' + escapeHtml(item.title) + '</div>' +
         '<div class="poster-badges">' + badges + '</div>' +
@@ -1032,13 +1286,39 @@ function renderDetailPanel(item, container) {
 
   const typeLabel = item.media_type === 'movie' ? 'Movie' : 'TV Show';
   const qualityText = item.quality ? ' - ' + item.quality : '';
-  const viewerText = item.unique_viewers > 0
-    ? item.unique_viewers + ' crew member' + (item.unique_viewers > 1 ? 's' : '') + ' watched'
-    : 'No one else has watched yet';
+
+  // Rich viewer text
+  var viewerHtml = '';
+  var viewers = item.unique_viewers || 0;
+  if (item.status === 'promoted') {
+    viewerHtml = '<div class="detail-viewer-text"><span class="shared-text">Shared with the crew! Doesn\'t count against your quota.</span></div>';
+  } else if (viewers === 0) {
+    viewerHtml = '<div class="detail-viewer-text">No one else has watched this yet</div>';
+  } else {
+    var needed = promotionThreshold - viewers;
+    var hint = '';
+    if (needed > 0) {
+      hint = ' - <span class="promotion-hint">' + needed + ' more and it becomes shared!</span>';
+    } else {
+      hint = ' - <span class="promotion-hint">almost shared!</span>';
+    }
+    viewerHtml = '<div class="detail-viewer-text">' + viewers + ' crew member' + (viewers > 1 ? 's' : '') + ' watched this' + hint + '</div>';
+  }
+
+  // Buried note
+  var buriedNote = '';
+  if (item.is_buried) {
+    buriedNote = '<div class="detail-buried-note">&#128274; Buried treasure - protected from auto-cleanup</div>';
+  }
 
   let actionsHtml = '';
+  if (item.can_bury) {
+    actionsHtml += '<button class="bury-btn" onclick="event.stopPropagation(); buryContent(' + item.content_id + ')" data-tooltip="Protect from auto-cleanup">&#9935; Bury</button>';
+  } else if (item.is_buried) {
+    actionsHtml += '<button class="bury-btn" onclick="event.stopPropagation(); buryContent(' + item.content_id + ')" data-tooltip="Remove auto-cleanup protection">&#9935; Unbury</button>';
+  }
   if (item.can_scuttle) {
-    actionsHtml += '<button class="btn btn-danger" onclick="event.stopPropagation(); scuttle(' + item.content_id + ', \'' + escapeAttr(item.title) + '\', \'' + item.size_display + '\')">&#127988; Scuttle</button>';
+    actionsHtml += '<button class="btn btn-danger" onclick="event.stopPropagation(); scuttle(' + item.content_id + ', \'' + escapeAttr(item.title) + '\', \'' + (item.size_display || 'downloading') + '\')" data-tooltip="Delete this from the server">&#127988; Scuttle</button>';
   }
   actionsHtml += '<button class="btn" onclick="event.stopPropagation(); toggleDetail(null)">Close</button>';
 
@@ -1062,11 +1342,15 @@ function renderDetailPanel(item, container) {
     seasonsHtml = '<div style="padding:12px 0; color:var(--text-dim); font-size:13px;">Season data syncing...</div>';
   }
 
+  var sizeText = item.size_display || 'Downloading...';
+
   panel.innerHTML =
     '<div class="detail-header">' +
       '<div>' +
         '<div class="detail-title">' + escapeHtml(item.title) + '</div>' +
-        '<div class="detail-meta">' + typeLabel + qualityText + ' - ' + item.size_display + ' - ' + viewerText + '</div>' +
+        '<div class="detail-meta">' + typeLabel + qualityText + ' - ' + sizeText + '</div>' +
+        viewerHtml +
+        buriedNote +
       '</div>' +
       '<div class="detail-actions">' + actionsHtml + '</div>' +
     '</div>' +
@@ -1102,7 +1386,7 @@ function setSortOrder(sort) {
 
 async function loadPlank() {
   const section = document.getElementById('plank-section');
-  const container = document.getElementById('plank-list');
+  const grid = document.getElementById('plank-grid');
   try {
     const resp = await fetch(API + '/api/plank');
     const data = await resp.json();
@@ -1114,23 +1398,46 @@ async function loadPlank() {
     const modeLabel = document.getElementById('plank-mode-label');
     modeLabel.textContent = data.plank_mode === 'adrift' ? 'Adrift' : 'Anchored';
 
-    container.innerHTML = data.items.map(function(item) {
-      const icon = item.media_type === 'movie' ? '&#127916;' : '&#128250;';
+    // Section description
+    var descEl = document.getElementById('plank-desc');
+    var descText = "These items are scheduled for deletion. They'll be gone in " + data.plank_days + " days unless someone rescues them by watching.";
+    if (data.plank_mode === 'adrift') {
+      descText += " Watch something here to save it!";
+    }
+    descEl.textContent = descText;
+
+    // Render as poster cards
+    grid.innerHTML = data.items.map(function(item) {
+      const typeIcon = item.media_type === 'movie' ? '&#127916;' : '&#128250;';
       const daysLeft = daysRemaining(item.plank_started_at, data.plank_days);
-      const countdown = daysLeft <= 0 ? 'Expiring soon' : daysLeft + ' days left';
+      const countdownText = daysLeft <= 0 ? 'Expiring!' : daysLeft + ' day' + (daysLeft !== 1 ? 's' : '');
       const isOwner = currentUser && currentUser.id === item.owner_user_id;
-      let actionBtn = '';
-      if (isOwner) {
-        actionBtn = '<button class="rescue-btn" onclick="rescueContent(' + item.content_id + ')">&#9875; Rescue</button>';
-      } else if (data.plank_mode === 'adrift') {
-        actionBtn = '<span class="plank-adrift-note">Watch it to save it!</span>';
+
+      let imgHtml;
+      if (item.poster_url) {
+        imgHtml = '<img class="poster-img" src="' + escapeAttr(item.poster_url) + '" alt="' + escapeAttr(item.title) + '" loading="lazy" onerror="this.parentElement.innerHTML=posterFallback(\'' + escapeAttr(item.title) + '\',\'' + item.media_type + '\')">';
+      } else {
+        imgHtml = '<div class="poster-fallback"><span class="icon">' + typeIcon + '</span><span class="title">' + escapeHtml(item.title) + '</span></div>';
       }
-      return '<div class="content-item">' +
-        '<span class="content-icon">' + icon + '</span>' +
-        '<div class="content-info"><div class="content-title">' + escapeHtml(item.title) + '</div>' +
-        '<div class="content-meta"><span class="plank-countdown">' + countdown + '</span></div></div>' +
-        '<div class="content-size">' + item.size_display + '</div>' +
-        actionBtn + '</div>';
+
+      var actionHtml = '';
+      if (isOwner) {
+        actionHtml = '<span class="poster-badge" style="background:rgba(63,185,80,0.2);color:var(--green);cursor:pointer;" onclick="event.stopPropagation(); rescueContent(' + item.content_id + ')">&#9875; Rescue</span>';
+      }
+
+      return '<div class="poster-card plank-card">' +
+        '<span class="badge-type">' + typeIcon + '</span>' +
+        '<span class="badge-plank-countdown">' + countdownText + '</span>' +
+        imgHtml +
+        '<div class="poster-overlay">' +
+          '<div class="poster-title">' + escapeHtml(item.title) + '</div>' +
+          '<div class="poster-badges">' +
+            '<span class="poster-badge badge-size">' + item.size_display + '</span>' +
+            '<span class="poster-badge" style="background:rgba(255,255,255,0.1);color:var(--text-dim);">' + escapeHtml(item.owner_username || '') + '</span>' +
+            actionHtml +
+          '</div>' +
+        '</div>' +
+      '</div>';
     }).join('');
   } catch {
     section.style.display = 'none';
@@ -1176,12 +1483,29 @@ async function rescueContent(contentId) {
     const resp = await fetch(API + '/api/treasure/' + contentId + '/rescue', {method: 'POST'});
     const data = await resp.json();
     if (resp.ok) {
+      showToast('Content rescued!', 'success');
       loadDashboard();
     } else {
-      alert(data.detail || 'Rescue failed');
+      showToast(data.detail || 'Rescue failed', 'error');
     }
   } catch (e) {
-    alert('Rescue failed: ' + e.message);
+    showToast('Rescue failed: ' + e.message, 'error');
+  }
+}
+
+async function buryContent(contentId) {
+  try {
+    const resp = await fetch(API + '/api/treasure/' + contentId + '/bury', {method: 'POST'});
+    const data = await resp.json();
+    if (resp.ok) {
+      showToast(data.message, data.buried ? 'success' : 'info');
+      expandedContentId = null;
+      loadCargo();
+    } else {
+      showToast(data.detail || 'Failed to bury content', 'error');
+    }
+  } catch (e) {
+    showToast('Failed: ' + e.message, 'error');
   }
 }
 
@@ -1272,12 +1596,17 @@ async function confirmScuttle() {
     const data = await resp.json();
     if (resp.ok) {
       expandedContentId = null;
+      if (data.walked_plank) {
+        showToast('Content is walking the plank (' + data.plank_days + ' days)', 'info');
+      } else {
+        showToast('Content scuttled successfully', 'success');
+      }
       loadDashboard();
     } else {
-      alert(data.detail || 'Scuttle failed');
+      showToast(data.detail || 'Scuttle failed', 'error');
     }
   } catch (e) {
-    alert('Scuttle failed: ' + e.message);
+    showToast('Scuttle failed: ' + e.message, 'error');
   }
 }
 
@@ -1312,12 +1641,15 @@ async function setAutoScuttle(days) {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({auto_scuttle_days: parseInt(days) || 0}),
     });
-    if (!resp.ok) {
+    if (resp.ok) {
+      const data = await resp.json();
+      showToast(data.message, 'success');
+    } else {
       const d = await resp.json();
-      alert('Failed to update: ' + (d.detail || 'Unknown error'));
+      showToast('Failed to update: ' + (d.detail || 'Unknown error'), 'error');
     }
   } catch (e) {
-    alert('Failed to update auto-cleanup: ' + e.message);
+    showToast('Failed to update auto-cleanup: ' + e.message, 'error');
   }
 }
 

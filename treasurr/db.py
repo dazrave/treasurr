@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS content_ownership (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     content_id INTEGER NOT NULL UNIQUE,
     owner_user_id INTEGER NOT NULL,
-    status TEXT DEFAULT 'owned' CHECK(status IN ('owned', 'promoted', 'released', 'plank')),
+    status TEXT DEFAULT 'owned' CHECK(status IN ('owned', 'promoted', 'released', 'plank', 'buried')),
     owned_at TEXT NOT NULL,
     promoted_at TEXT,
     FOREIGN KEY (content_id) REFERENCES content(id),
@@ -183,15 +183,36 @@ class Database:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     content_id INTEGER NOT NULL UNIQUE,
                     owner_user_id INTEGER NOT NULL,
-                    status TEXT DEFAULT 'owned' CHECK(status IN ('owned', 'promoted', 'released', 'plank')),
+                    status TEXT DEFAULT 'owned' CHECK(status IN ('owned', 'promoted', 'released', 'plank', 'buried')),
                     owned_at TEXT NOT NULL,
                     promoted_at TEXT,
                     plank_started_at TEXT,
+                    buried_at TEXT,
                     FOREIGN KEY (content_id) REFERENCES content(id),
                     FOREIGN KEY (owner_user_id) REFERENCES users(id)
                 );
                 INSERT INTO content_ownership_new (id, content_id, owner_user_id, status, owned_at, promoted_at)
                     SELECT id, content_id, owner_user_id, status, owned_at, promoted_at FROM content_ownership;
+                DROP TABLE content_ownership;
+                ALTER TABLE content_ownership_new RENAME TO content_ownership;
+            """)
+        if "buried_at" not in ownership_cols and "plank_started_at" in ownership_cols:
+            # Add buried_at and update CHECK constraint for existing DBs that already have plank_started_at
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS content_ownership_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    content_id INTEGER NOT NULL UNIQUE,
+                    owner_user_id INTEGER NOT NULL,
+                    status TEXT DEFAULT 'owned' CHECK(status IN ('owned', 'promoted', 'released', 'plank', 'buried')),
+                    owned_at TEXT NOT NULL,
+                    promoted_at TEXT,
+                    plank_started_at TEXT,
+                    buried_at TEXT,
+                    FOREIGN KEY (content_id) REFERENCES content(id),
+                    FOREIGN KEY (owner_user_id) REFERENCES users(id)
+                );
+                INSERT INTO content_ownership_new (id, content_id, owner_user_id, status, owned_at, promoted_at, plank_started_at)
+                    SELECT id, content_id, owner_user_id, status, owned_at, promoted_at, plank_started_at FROM content_ownership;
                 DROP TABLE content_ownership;
                 ALTER TABLE content_ownership_new RENAME TO content_ownership;
             """)
@@ -444,7 +465,7 @@ class Database:
             rows = conn.execute(
                 """SELECT c.*, co.id as co_id, co.content_id as co_content_id,
                           co.owner_user_id, co.status as co_status,
-                          co.owned_at, co.promoted_at,
+                          co.owned_at, co.promoted_at, co.buried_at,
                           (SELECT COUNT(DISTINCT w.user_id)
                            FROM watch_events w
                            WHERE w.content_id = c.id AND w.completed = 1
@@ -465,6 +486,7 @@ class Database:
                         status=r["co_status"],
                         owned_at=r["owned_at"],
                         promoted_at=r["promoted_at"],
+                        buried_at=r["buried_at"],
                     ),
                     unique_viewers=r["unique_viewers"],
                 )
@@ -484,7 +506,7 @@ class Database:
                              AND w.user_id != co.owner_user_id) as unique_viewers
                    FROM content c
                    JOIN content_ownership co ON co.content_id = c.id
-                   WHERE co.status = 'owned' AND c.status = 'active'""",
+                   WHERE co.status IN ('owned', 'buried') AND c.status = 'active'""",
             ).fetchall()
             return [
                 OwnedContent(
@@ -595,11 +617,11 @@ class Database:
             if not user_row:
                 return None
 
-            # In anchored mode, plank content counts against quota
+            # Buried always counts. In anchored mode, plank content also counts.
             if plank_mode == "anchored":
-                status_filter = "co.status IN ('owned', 'plank')"
+                status_filter = "co.status IN ('owned', 'buried', 'plank')"
             else:
-                status_filter = "co.status = 'owned'"
+                status_filter = "co.status IN ('owned', 'buried')"
 
             usage_row = conn.execute(
                 f"""SELECT COALESCE(SUM(c.size_bytes), 0) as used_bytes,
@@ -672,7 +694,7 @@ class Database:
             owned = conn.execute(
                 """SELECT COALESCE(SUM(c.size_bytes), 0) as owned
                    FROM content c JOIN content_ownership co ON co.content_id = c.id
-                   WHERE co.status = 'owned' AND c.status = 'active'"""
+                   WHERE co.status IN ('owned', 'buried') AND c.status = 'active'"""
             ).fetchone()["owned"]
 
             promoted = conn.execute(
@@ -979,6 +1001,92 @@ class Database:
             ).fetchall()
             return [_row_to_content(r) for r in rows]
 
+    # --- Bury (Protected Content) ---
+
+    def bury_content(self, content_id: int) -> None:
+        """Protect content from auto-cleanup by burying it."""
+        now = _now()
+        with self.connection() as conn:
+            conn.execute(
+                "UPDATE content_ownership SET status = 'buried', buried_at = ? WHERE content_id = ? AND status = 'owned'",
+                (now, content_id),
+            )
+
+    def unbury_content(self, content_id: int) -> None:
+        """Remove bury protection, return to owned status."""
+        with self.connection() as conn:
+            conn.execute(
+                "UPDATE content_ownership SET status = 'owned', buried_at = NULL WHERE content_id = ? AND status = 'buried'",
+                (content_id,),
+            )
+
+    # --- User-Relevant Promoted Content ---
+
+    def get_relevant_promoted_content(self, user_id: int) -> list[Content]:
+        """Get promoted content relevant to a specific user (they own it or watched it)."""
+        with self.connection() as conn:
+            rows = conn.execute(
+                """SELECT DISTINCT c.* FROM content c
+                   JOIN content_ownership co ON co.content_id = c.id
+                   LEFT JOIN watch_events w ON w.content_id = c.id AND w.user_id = ? AND w.completed = 1
+                   WHERE co.status = 'promoted' AND c.status = 'active'
+                     AND (co.owner_user_id = ? OR w.id IS NOT NULL)
+                   ORDER BY co.promoted_at DESC""",
+                (user_id, user_id),
+            ).fetchall()
+            return [_row_to_content(r) for r in rows]
+
+    # --- Admin Activity Feed ---
+
+    def get_admin_activity_feed(self, limit: int = 50) -> list[dict]:
+        """Get a chronological activity feed for admin Ship's Log."""
+        with self.connection() as conn:
+            rows = conn.execute(
+                """SELECT * FROM (
+                    SELECT 'watch' as type, w.watched_at as at,
+                           u.plex_username as actor, c.title, c.media_type,
+                           owner_u.plex_username as owner_username,
+                           NULL as size_bytes, NULL as viewers
+                    FROM watch_events w
+                    JOIN users u ON u.id = w.user_id
+                    JOIN content c ON c.id = w.content_id
+                    JOIN content_ownership co ON co.content_id = c.id
+                    JOIN users owner_u ON owner_u.id = co.owner_user_id
+                    WHERE w.completed = 1 AND w.user_id != co.owner_user_id
+
+                    UNION ALL
+
+                    SELECT 'promotion' as type, p.promoted_at as at,
+                           u.plex_username as actor, c.title, c.media_type,
+                           NULL, p.size_freed_bytes, p.unique_viewers
+                    FROM promotion_log p
+                    JOIN users u ON u.id = p.from_user_id
+                    JOIN content c ON c.id = p.content_id
+
+                    UNION ALL
+
+                    SELECT 'deletion' as type, d.deleted_at as at,
+                           u.plex_username as actor, d.title, NULL,
+                           NULL, d.size_bytes, NULL
+                    FROM deletion_log d
+                    JOIN users u ON u.id = d.deleted_by_user_id
+                ) ORDER BY at DESC LIMIT ?""",
+                (limit,),
+            ).fetchall()
+            return [
+                {
+                    "type": row["type"],
+                    "at": row["at"],
+                    "actor": row["actor"],
+                    "title": row["title"],
+                    "media_type": row["media_type"],
+                    "owner_username": row["owner_username"],
+                    "size_bytes": row["size_bytes"],
+                    "viewers": row["viewers"],
+                }
+                for row in rows
+            ]
+
 
 # --- Row mappers ---
 
@@ -1024,6 +1132,7 @@ def _row_to_ownership(row: sqlite3.Row) -> ContentOwnership:
         owned_at=row["owned_at"],
         promoted_at=row["promoted_at"],
         plank_started_at=row["plank_started_at"] if "plank_started_at" in keys else None,
+        buried_at=row["buried_at"] if "buried_at" in keys else None,
     )
 
 
