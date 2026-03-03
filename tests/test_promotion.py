@@ -79,7 +79,7 @@ class TestPromotionEngine:
         content = db.upsert_content(title="Film", media_type="movie", tmdb_id=1, size_bytes=5000)
         db.set_ownership(content.id, owner.id)
 
-        # Owner watches + one other viewer — should NOT promote (only 1 non-owner)
+        # Owner watches + one other viewer  - should NOT promote (only 1 non-owner)
         db.add_watch_event(content.id, owner.id, "2026-01-01", completed=True)
         db.add_watch_event(content.id, viewer1.id, "2026-01-02", completed=True)
 

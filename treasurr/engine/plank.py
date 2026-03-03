@@ -1,4 +1,4 @@
-"""Plank engine — manages the grace period before content deletion."""
+"""Plank engine  - manages the grace period before content deletion."""
 
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ async def run_plank_checks(db: Database, config: Config) -> dict:
         if delete_result.success:
             results["expired"] += 1
             logger.info(
-                "Plank expired — scuttled '%s' (%d bytes)",
+                "Plank expired  - scuttled '%s' (%d bytes)",
                 item.content.title, item.content.size_bytes,
             )
         else:

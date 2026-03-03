@@ -1,4 +1,4 @@
-"""Promotion engine — detects and executes content promotion to shared plunder."""
+"""Promotion engine  - detects and executes content promotion to shared plunder."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ async def run_promotions(db: Database, config: Config) -> int:
 
         if _would_exceed_plunder_cap(db, config, item.content.size_bytes):
             logger.info(
-                "Shared plunder cap would be exceeded by '%s' (%d bytes) — skipping",
+                "Shared plunder cap would be exceeded by '%s' (%d bytes)  - skipping",
                 item.content.title,
                 item.content.size_bytes,
             )

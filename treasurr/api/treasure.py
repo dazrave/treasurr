@@ -75,21 +75,21 @@ def _derive_quality(size_bytes: int, media_type: str) -> tuple[str, str]:
     """Derive quality label and note from file size and media type."""
     if media_type == "show":
         if size_bytes > 30_000_000_000:
-            return "4K", "4K Ultra HD \u2014 best quality, larger file"
+            return "4K", "4K Ultra HD - best quality, larger file"
         if size_bytes > 8_000_000_000:
-            return "1080p HD", "Full HD \u2014 great quality"
+            return "1080p HD", "Full HD - great quality"
         if size_bytes > 2_000_000_000:
-            return "720p HD", "HD \u2014 good quality, smaller file"
-        return "SD", "Standard definition \u2014 smallest file"
+            return "720p HD", "HD - good quality, smaller file"
+        return "SD", "Standard definition - smallest file"
 
     # movie
     if size_bytes > 15_000_000_000:
-        return "4K", "4K Ultra HD \u2014 best quality, larger file"
+        return "4K", "4K Ultra HD - best quality, larger file"
     if size_bytes > 4_000_000_000:
-        return "1080p HD", "Full HD \u2014 great quality"
+        return "1080p HD", "Full HD - great quality"
     if size_bytes > 1_000_000_000:
-        return "720p HD", "HD \u2014 good quality, smaller file"
-    return "SD", "Standard definition \u2014 smallest file"
+        return "720p HD", "HD - good quality, smaller file"
+    return "SD", "Standard definition - smallest file"
 
 
 @router.get("/treasure/chest")

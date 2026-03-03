@@ -82,7 +82,7 @@ class TestSplitTheLoopPromotion:
         promoted = await run_promotions(db, split_config)
         assert promoted == 1
 
-        # Check splits created — all 4 viewers (including owner) should have splits
+        # Check splits created  - all 4 viewers (including owner) should have splits
         for user in [owner, *viewers]:
             total = db.get_user_split_total(user.id)
             assert total == 9000 // 4  # 2250 each
@@ -97,7 +97,7 @@ class TestSplitTheLoopPromotion:
         new_viewer = db.upsert_user(plex_user_id="v_new", plex_username="new_viewer", quota_bytes=100_000)
         db.add_watch_event(content.id, new_viewer.id, "2026-01-10", completed=True)
 
-        # Run promotions again — second pass should recalculate
+        # Run promotions again  - second pass should recalculate
         await run_promotions(db, split_config)
 
         # Now 5 viewers: 9000 // 5 = 1800 each

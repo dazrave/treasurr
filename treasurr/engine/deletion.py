@@ -1,4 +1,4 @@
-"""Deletion (scuttle) engine — handles content removal workflow."""
+"""Deletion (scuttle) engine  - handles content removal workflow."""
 
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ async def scuttle_content(
         return ScuttleResult(success=False, message="You don't own this content")
 
     if ownership.status == "promoted":
-        return ScuttleResult(success=False, message="Content is already promoted — it's shared plunder now")
+        return ScuttleResult(success=False, message="Content is already promoted  - it's shared plunder now")
 
     if ownership.status == "plank":
         return ScuttleResult(success=False, message="Content is already walking the plank")
@@ -116,14 +116,14 @@ async def _execute_deletion(
             await radarr.delete(content.radarr_id, delete_files=True)
 
         else:
-            logger.warning("No arr ID for content '%s' — marking deleted without file removal", content.title)
+            logger.warning("No arr ID for content '%s'  - marking deleted without file removal", content.title)
 
     except Exception as e:
         db.update_content_status(content_id, "active")
         logger.error("Failed to delete content '%s': %s", content.title, e)
         return ScuttleResult(success=False, message=f"Deletion failed: {e}")
 
-    # Success — update records
+    # Success  - update records
     db.update_content_status(content_id, "deleted")
     db.release_content(content_id)
     db.delete_splits_for_content(content_id)

@@ -1,4 +1,4 @@
-"""Retention engine — auto-scuttles content based on user retention policies."""
+"""Retention engine  - auto-scuttles content based on user retention policies."""
 
 from __future__ import annotations
 

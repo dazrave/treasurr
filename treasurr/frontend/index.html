@@ -602,7 +602,7 @@ async function loadQuota() {
     window._displayMode = data.display_mode || 'exact';
     window._plankDays = data.plank_days || 0;
 
-    // Quota numbers — show shared portion if split_the_loot
+    // Quota numbers  - show shared portion if split_the_loot
     let usedText = data.used_display;
     if (data.promotion_mode === 'split_the_loot' && data.split_display) {
       usedText = data.used_display + ' (' + data.split_display + ' shared)';
@@ -747,11 +747,11 @@ async function loadActivity() {
     container.innerHTML = data.events.map(ev => {
       if (ev.type === 'promotion') {
         return '<div class="activity-item">&#9875; <span class="highlight">"' +
-          escapeHtml(ev.title) + '"</span> promoted &mdash; <span class="freed">' +
+          escapeHtml(ev.title) + '"</span> promoted - <span class="freed">' +
           ev.size_display + ' freed!</span></div>';
       }
       return '<div class="activity-item">&#128465; <span class="highlight">"' +
-        escapeHtml(ev.title) + '"</span> scuttled &mdash; <span class="freed">' +
+        escapeHtml(ev.title) + '"</span> scuttled - <span class="freed">' +
         ev.size_display + ' freed</span></div>';
     }).join('');
   } catch {

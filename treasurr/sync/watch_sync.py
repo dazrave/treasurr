@@ -29,7 +29,7 @@ async def sync_watch_history(db: Database, config: Config) -> int:
         # For movies, match directly
         # We need to find content by looking up what we have in our DB
         # Tautulli uses rating_key which is Plex-specific, not TMDB
-        # We match by title as a fallback — the request sync populates TMDB IDs
+        # We match by title as a fallback  - the request sync populates TMDB IDs
         # This is imperfect but works for MVP; Phase 2 can add better mapping
 
         completed = record.percent_complete >= threshold
