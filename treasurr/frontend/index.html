@@ -153,6 +153,7 @@ a:hover { color: var(--gold-bright); }
   padding: 24px;
   margin-bottom: 24px;
 }
+.auto-cleanup-card { padding: 16px 24px; }
 .quota-header {
   display: flex;
   justify-content: space-between;
@@ -960,21 +961,18 @@ a:hover { color: var(--gold-bright); }
       </div>
 
       <!-- Auto-cleanup setting -->
-      <div class="quota-card" style="padding:16px 24px;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <div style="font-size:13px; font-weight:600; color:var(--text);">Auto-cleanup</div>
-            <div id="retention-note" style="font-size:12px; color:var(--text-dim);"></div>
-          </div>
-          <select id="auto-scuttle-select" onchange="setAutoScuttle(this.value)" style="padding:6px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:13px;">
-            <option value="0">Off</option>
-            <option value="7">7 days after watching</option>
-            <option value="14">2 weeks after watching</option>
-            <option value="30">1 month after watching</option>
-            <option value="60">2 months after watching</option>
-            <option value="90">3 months after watching</option>
-          </select>
-        </div>
+      <div class="quota-card auto-cleanup-card">
+        <div style="font-size:13px; font-weight:600; color:var(--text); margin-bottom:4px;">Auto-cleanup</div>
+        <div style="font-size:12px; color:var(--text-dim); margin-bottom:8px;">Once you finish watching something, it will be automatically deleted after the time you choose below. This frees up your quota so you can request more.</div>
+        <select id="auto-scuttle-select" onchange="setAutoScuttle(this.value)" style="width:100%; padding:8px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:13px;">
+          <option value="0">Off - keep everything forever</option>
+          <option value="7">Delete 7 days after I finish watching</option>
+          <option value="14">Delete 2 weeks after I finish watching</option>
+          <option value="30">Delete 1 month after I finish watching</option>
+          <option value="60">Delete 2 months after I finish watching</option>
+          <option value="90">Delete 3 months after I finish watching</option>
+        </select>
+        <div id="retention-note" style="font-size:11px; color:var(--text-dim); margin-top:6px;"></div>
       </div>
 
       <!-- Cargo (owned content) - Poster Grid -->
@@ -1250,9 +1248,10 @@ async function loadQuota() {
 
     const retNote = document.getElementById('retention-note');
     if (data.min_retention_days && data.min_retention_days > 0) {
-      retNote.textContent = 'Your captain requires content to stay for at least ' + data.min_retention_days + ' days.';
+      retNote.textContent = 'Note: your captain requires content to stay on the server for at least ' + data.min_retention_days + ' days after it was added, even if auto-cleanup is on.';
+      retNote.style.color = 'var(--orange)';
     } else {
-      retNote.textContent = 'Automatically remove content after you finish watching it.';
+      retNote.textContent = '';
     }
 
     // MOTD
