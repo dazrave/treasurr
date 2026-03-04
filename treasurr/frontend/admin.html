@@ -242,12 +242,87 @@ input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
 .log-item strong { color: var(--text); font-weight: 600; }
 .log-item em { color: var(--gold); font-style: normal; }
 .log-item .freed { color: var(--green); }
+
+/* Settings grid */
+.settings-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+}
+
+/* Crew table responsive wrapper */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* Responsive: Tablet */
+@media (max-width: 768px) {
+  .header { padding: 12px 16px; flex-wrap: wrap; gap: 8px; }
+  .header-brand { font-size: 16px; gap: 6px; }
+  .header-nav { gap: 10px; }
+  .header-nav a { font-size: 13px; }
+
+  .main { padding: 16px; }
+
+  .stats-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  .stat-card { padding: 14px; }
+  .stat-value { font-size: 20px; }
+
+  .settings-grid { grid-template-columns: 1fr; gap: 16px; }
+
+  .section-header { padding: 12px 16px; font-size: 12px; }
+
+  td, th { padding: 8px 10px; font-size: 13px; }
+  .usage-bar { width: 60px; }
+}
+
+/* Responsive: Mobile */
+@media (max-width: 480px) {
+  .header { padding: 10px 12px; }
+  .header-brand { font-size: 14px; }
+  .header-brand span.admin-label { display: none; }
+  .header-nav { gap: 8px; }
+  .header-nav a { font-size: 12px; }
+  .btn { padding: 5px 10px; font-size: 12px; }
+  .btn-gold { font-size: 12px; }
+
+  .main { padding: 12px; }
+
+  .storage-bar-wrapper { padding: 14px; }
+  .storage-bar { height: 24px; }
+
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .stat-card { padding: 12px; border-radius: 8px; }
+  .stat-label { font-size: 10px; letter-spacing: 1px; }
+  .stat-value { font-size: 18px; }
+  .stat-sub { font-size: 11px; }
+
+  .section { border-radius: 8px; }
+  .section-header { padding: 10px 14px; }
+
+  .settings-grid { grid-template-columns: 1fr; gap: 14px; }
+
+  .radio-option { padding: 8px 10px; }
+  .radio-option-label { font-size: 13px; }
+  .radio-option-desc { font-size: 11px; }
+
+  .setting-select { font-size: 13px; padding: 8px 10px; }
+
+  .log-item { padding: 8px 14px; font-size: 12px; gap: 8px; }
+
+  .modal { padding: 16px; }
+  .confirm-box { padding: 16px; }
+
+  /* Crew table: card layout on mobile */
+  .crew-table-desktop { display: none; }
+  .crew-cards-mobile { display: block; }
+}
+
+@media (min-width: 481px) {
+  .crew-cards-mobile { display: none; }
+}
 </style>
 </head>
 <body>
 
 <div class="header">
-  <div class="header-brand">&#9875; TREASURR - Admin</div>
+  <div class="header-brand">&#9875; TREASURR <span class="admin-label">- Admin</span></div>
   <div class="header-nav">
     <a href="/">&#8592; Dashboard</a>
     <button class="btn btn-gold" onclick="triggerSync()">&#128260; Sync Now</button>
@@ -303,7 +378,7 @@ input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
         </div>
       </div>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+      <div class="settings-grid">
         <!-- Promotion Mode -->
         <div>
           <span class="setting-label">Promotion Mode</span>
@@ -711,7 +786,9 @@ function renderCrewTable() {
   });
 
   var allChecked = selectedUsers.size === crewData.length && crewData.length > 0;
-  var html = '<table><thead><tr>';
+
+  // Desktop table
+  var html = '<div class="table-scroll crew-table-desktop"><table><thead><tr>';
   html += '<th style="width:40px;cursor:default;"><input type="checkbox" ' + (allChecked ? 'checked' : '') + ' onchange="toggleSelectAll(this.checked)"></th>';
   html += sortHeader('username', 'Pirate');
   html += sortHeader('quota_bytes', 'Quota');
@@ -747,7 +824,49 @@ function renderCrewTable() {
       '<td><button class="btn btn-sm" onclick="editUser(' + c.id + ',\'' + esc(c.username) + '\',' + c.quota_bytes + ',' + c.bonus_bytes + ')">Edit</button></td>' +
       '</tr>';
   }
-  html += '</tbody></table>';
+  html += '</tbody></table></div>';
+
+  // Mobile card layout
+  html += '<div class="crew-cards-mobile">';
+  for (var j = 0; j < sorted.length; j++) {
+    var m = sorted[j];
+    var mPct = m.usage_percent;
+    var mBarClass = '';
+    if (mPct >= 90) mBarClass = 'danger';
+    else if (mPct >= 75) mBarClass = 'warning';
+    var mQuotaGb = (m.quota_bytes / GB).toFixed(0);
+    var mBonusGb = (m.bonus_bytes / GB).toFixed(0);
+    var mQuotaLabel = mBonusGb > 0 ? mQuotaGb + '+' + mBonusGb + ' GB' : mQuotaGb + ' GB';
+    var mChecked = selectedUsers.has(m.id) ? 'checked' : '';
+    var mLastReq = m.last_request_at ? relativeTime(m.last_request_at) : 'never';
+
+    html += '<div style="padding:14px 16px; border-bottom:1px solid var(--border);">' +
+      '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
+        '<div style="display:flex; align-items:center; gap:8px;">' +
+          '<input type="checkbox" ' + mChecked + ' onchange="toggleUser(' + m.id + ', this.checked)">' +
+          '<a href="/?view_as=' + m.id + '" style="color:var(--text); font-weight:600;">' + esc(m.username) + '</a>' +
+          (m.is_admin ? ' <span class="dim" style="font-size:11px;">(admin)</span>' : '') +
+        '</div>' +
+        '<button class="btn btn-sm" onclick="editUser(' + m.id + ',\'' + esc(m.username) + '\',' + m.quota_bytes + ',' + m.bonus_bytes + ')">Edit</button>' +
+      '</div>' +
+      '<div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-dim); margin-bottom:6px;">' +
+        '<span>Quota: <span class="mono" style="color:var(--text);">' + mQuotaLabel + '</span></span>' +
+        '<span>Used: <span class="mono" style="color:var(--text);">' + m.used_display + '</span></span>' +
+      '</div>' +
+      '<div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">' +
+        '<div style="flex:1; height:6px; background:var(--surface-2); border-radius:3px; overflow:hidden;">' +
+          '<div class="usage-bar-fill ' + mBarClass + '" style="height:100%; width:' + Math.min(mPct, 100) + '%; border-radius:3px;"></div>' +
+        '</div>' +
+        '<span class="mono dim" style="font-size:12px;">' + mPct + '%</span>' +
+      '</div>' +
+      '<div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-dim);">' +
+        '<span>' + m.owned_count + ' items / ' + (m.request_count || 0) + ' requests</span>' +
+        '<span>Last: ' + mLastReq + '</span>' +
+      '</div>' +
+    '</div>';
+  }
+  html += '</div>';
+
   container.innerHTML = html;
 }
 
