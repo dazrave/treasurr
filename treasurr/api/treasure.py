@@ -401,19 +401,36 @@ async def get_shared_plunder(request: Request) -> dict:
     db = _get_db(request)
     items = db.get_relevant_promoted_content(user.id)
 
-    return {
-        "items": [
-            {
-                "content_id": item.id,
-                "title": item.title,
-                "media_type": item.media_type,
-                "size_bytes": item.size_bytes,
-                "size_display": format_bytes(item.size_bytes),
-                "poster_url": _poster_url(item.poster_path),
-            }
-            for item in items
-        ],
-    }
+    owner_cache: dict[int, str] = {}
+
+    def _get_owner_username(owner_id: int) -> str:
+        if owner_id not in owner_cache:
+            u = db.get_user(owner_id)
+            owner_cache[owner_id] = u.plex_username if u else "Unknown"
+        return owner_cache[owner_id]
+
+    result_items = []
+    for item in items:
+        ownership = db.get_ownership(item.id)
+        owner_username = ""
+        promoted_at = None
+        if ownership:
+            owner_username = _get_owner_username(ownership.owner_user_id)
+            promoted_at = ownership.promoted_at
+
+        result_items.append({
+            "content_id": item.id,
+            "title": item.title,
+            "media_type": item.media_type,
+            "size_bytes": item.size_bytes,
+            "size_display": format_bytes(item.size_bytes),
+            "poster_url": _poster_url(item.poster_path),
+            "unique_viewers": db.get_unique_viewers(item.id),
+            "owner_username": owner_username,
+            "promoted_at": promoted_at,
+        })
+
+    return {"items": result_items}
 
 
 @router.get("/activity")

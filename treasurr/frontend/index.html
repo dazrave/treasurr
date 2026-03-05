@@ -1079,6 +1079,8 @@ let pendingScuttleId = null;
 let pendingScuttleAction = null; // 'content' or 'season'
 let pendingSeasonNumber = null;
 let cargoItems = [];
+let plankItems = [];
+let plunderItems = [];
 let currentTypeFilter = 'all';
 let currentSort = 'name-asc';
 let expandedContentId = null;
@@ -1486,6 +1488,136 @@ function closeDetailModal() {
   expandedContentId = null;
 }
 
+function openPlankModal(contentId) {
+  var item = plankItems.find(function(i) { return i.content_id === contentId; });
+  if (!item) return;
+
+  var container = document.getElementById('detail-modal-content');
+  var typeLabel = item.media_type === 'movie' ? 'Movie' : 'TV Show';
+  var typeIcon = item.media_type === 'movie' ? '&#127916;' : '&#128250;';
+
+  var posterHtml;
+  if (item.poster_url) {
+    posterHtml = '<img src="' + escapeAttr(item.poster_url) + '" alt="' + escapeAttr(item.title) + '">';
+  } else {
+    posterHtml = '<div class="poster-fallback"><span class="icon">' + typeIcon + '</span><span class="title">' + escapeHtml(item.title) + '</span></div>';
+  }
+
+  var plankDays = window._plankPlankDays || window._plankDays || 14;
+  var plankMode = window._plankPlankMode || window._plankMode || 'adrift';
+  var daysLeft = daysRemaining(item.plank_started_at, plankDays);
+  var countdownText = daysLeft <= 0 ? 'Expiring soon!' : daysLeft + ' day' + (daysLeft !== 1 ? 's' : '') + ' remaining';
+  var countdownPercent = Math.max(0, Math.min(100, (daysLeft / plankDays) * 100));
+  var barColor = daysLeft <= 2 ? 'var(--red)' : daysLeft <= 5 ? 'var(--gold)' : 'var(--green)';
+
+  var countdownHtml = '<div style="margin-top:12px;">' +
+    '<div style="font-size:13px;color:var(--text-dim);margin-bottom:4px;">&#9200; ' + countdownText + '</div>' +
+    '<div style="background:var(--surface);border-radius:4px;height:6px;overflow:hidden;">' +
+      '<div style="width:' + countdownPercent + '%;height:100%;background:' + barColor + ';border-radius:4px;transition:width 0.3s;"></div>' +
+    '</div>' +
+  '</div>';
+
+  var expiryNote = '<div style="margin-top:8px;font-size:13px;color:var(--text-dim);">When the countdown ends, this content will be <strong style="color:var(--red);">permanently deleted</strong> from the server.</div>';
+
+  var adriftNote = '';
+  if (plankMode === 'adrift') {
+    adriftNote = '<div style="margin-top:8px;padding:8px 12px;background:rgba(88,166,255,0.1);border-radius:6px;font-size:13px;color:var(--blue);">&#127754; Adrift mode: watching this content counts as a vote to save it. Enough viewers and it becomes shared plunder!</div>';
+  }
+
+  var isOwner = currentUser && currentUser.id === item.owner_user_id;
+  var ownerHtml = '<div style="margin-top:8px;font-size:13px;color:var(--text-dim);">Requested by <strong style="color:var(--text);">' + escapeHtml(item.owner_username || 'Unknown') + '</strong></div>';
+
+  var actionHtml = '';
+  if (isOwner) {
+    actionHtml = '<div class="detail-actions" style="margin-top:12px;">' +
+      '<div><button class="rescue-btn" onclick="rescueContent(' + item.content_id + ')">&#9875; Rescue</button>' +
+      '<div class="detail-action-hint">Pull it back from the plank into your chest</div></div>' +
+    '</div>';
+  }
+
+  var viewers = item.unique_viewers || 0;
+  var viewerHtml = '';
+  if (viewers > 0) {
+    viewerHtml = '<div style="margin-top:8px;font-size:13px;color:var(--text-dim);">' + viewers + ' crew member' + (viewers > 1 ? 's' : '') + ' watched this</div>';
+  }
+
+  container.innerHTML =
+    '<div class="detail-modal-top">' +
+      '<div class="detail-modal-poster">' + posterHtml + '</div>' +
+      '<div class="detail-modal-info">' +
+        '<div class="detail-title">' + escapeHtml(item.title) + '</div>' +
+        '<div class="detail-meta">' + typeLabel + '</div>' +
+        '<div class="detail-meta-row">' + item.size_display + '</div>' +
+        ownerHtml +
+        viewerHtml +
+        countdownHtml +
+        expiryNote +
+        adriftNote +
+      '</div>' +
+    '</div>' +
+    '<div class="detail-modal-body">' +
+      actionHtml +
+    '</div>';
+
+  document.getElementById('detail-modal').classList.add('active');
+}
+
+function openPlunderModal(contentId) {
+  var item = plunderItems.find(function(i) { return i.content_id === contentId; });
+  if (!item) return;
+
+  var container = document.getElementById('detail-modal-content');
+  var typeLabel = item.media_type === 'movie' ? 'Movie' : 'TV Show';
+  var typeIcon = item.media_type === 'movie' ? '&#127916;' : '&#128250;';
+
+  var posterHtml;
+  if (item.poster_url) {
+    posterHtml = '<img src="' + escapeAttr(item.poster_url) + '" alt="' + escapeAttr(item.title) + '">';
+  } else {
+    posterHtml = '<div class="poster-fallback"><span class="icon">' + typeIcon + '</span><span class="title">' + escapeHtml(item.title) + '</span></div>';
+  }
+
+  var sharedBadge = '<div style="margin-top:8px;display:inline-block;padding:4px 10px;background:rgba(63,185,80,0.15);color:var(--green);border-radius:12px;font-size:12px;font-weight:600;">&#9878; Shared with the crew</div>';
+
+  var viewers = item.unique_viewers || 0;
+  var viewerHtml = '';
+  if (viewers > 0) {
+    viewerHtml = '<div style="margin-top:8px;font-size:13px;color:var(--text-dim);">' + viewers + ' crew member' + (viewers > 1 ? 's' : '') + ' watched this</div>';
+  }
+
+  var ownerHtml = '';
+  if (item.owner_username) {
+    ownerHtml = '<div style="margin-top:8px;font-size:13px;color:var(--text-dim);">Originally requested by <strong style="color:var(--text);">' + escapeHtml(item.owner_username) + '</strong></div>';
+  }
+
+  var promotedDate = '';
+  if (item.promoted_at) {
+    try { promotedDate = new Date(item.promoted_at).toLocaleDateString(); } catch(e) { promotedDate = item.promoted_at; }
+    promotedDate = '<div style="margin-top:4px;font-size:13px;color:var(--text-dim);">Became shared plunder on ' + promotedDate + '</div>';
+  }
+
+  var explanationHtml = '<div style="margin-top:12px;padding:8px 12px;background:rgba(63,185,80,0.08);border-radius:6px;font-size:13px;color:var(--text-dim);">Shared plunder doesn\'t count against anyone\'s quota. It stays on the server for everyone to enjoy.</div>';
+
+  container.innerHTML =
+    '<div class="detail-modal-top">' +
+      '<div class="detail-modal-poster">' + posterHtml + '</div>' +
+      '<div class="detail-modal-info">' +
+        '<div class="detail-title">' + escapeHtml(item.title) + '</div>' +
+        '<div class="detail-meta">' + typeLabel + '</div>' +
+        '<div class="detail-meta-row">' + item.size_display + '</div>' +
+        sharedBadge +
+        viewerHtml +
+        ownerHtml +
+        promotedDate +
+      '</div>' +
+    '</div>' +
+    '<div class="detail-modal-body">' +
+      explanationHtml +
+    '</div>';
+
+  document.getElementById('detail-modal').classList.add('active');
+}
+
 function toggleDetail(contentId) {
   if (contentId === null) {
     closeDetailModal();
@@ -1531,6 +1663,10 @@ async function loadPlank() {
     }
     descEl.textContent = descText;
 
+    plankItems = data.items;
+    window._plankPlankDays = data.plank_days;
+    window._plankPlankMode = data.plank_mode;
+
     // Render as poster cards
     grid.innerHTML = data.items.map(function(item) {
       const typeIcon = item.media_type === 'movie' ? '&#127916;' : '&#128250;';
@@ -1550,7 +1686,7 @@ async function loadPlank() {
         actionHtml = '<span class="poster-badge" style="background:rgba(63,185,80,0.2);color:var(--green);cursor:pointer;" onclick="event.stopPropagation(); rescueContent(' + item.content_id + ')">&#9875; Rescue</span>';
       }
 
-      return '<div class="poster-card plank-card">' +
+      return '<div class="poster-card plank-card" onclick="openPlankModal(' + item.content_id + ')">' +
         '<span class="badge-type">' + typeIcon + '</span>' +
         '<span class="badge-plank-countdown">' + countdownText + '</span>' +
         imgHtml +
@@ -1578,6 +1714,7 @@ async function loadPlunder() {
       grid.innerHTML = '<div class="empty">No shared plunder yet. Content gets shared when multiple crew members watch it!</div>';
       return;
     }
+    plunderItems = data.items;
     grid.innerHTML = data.items.map(function(item) {
       const typeIcon = item.media_type === 'movie' ? '&#127916;' : '&#128250;';
       let imgHtml;
@@ -1586,7 +1723,7 @@ async function loadPlunder() {
       } else {
         imgHtml = '<div class="poster-fallback"><span class="icon">' + typeIcon + '</span><span class="title">' + escapeHtml(item.title) + '</span></div>';
       }
-      return '<div class="poster-card promoted">' +
+      return '<div class="poster-card promoted" onclick="openPlunderModal(' + item.content_id + ')">' +
         '<span class="badge-type">' + typeIcon + '</span>' +
         imgHtml +
         '<div class="poster-overlay">' +
