@@ -596,6 +596,56 @@ input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
         </div>
       </div>
 
+      <!-- Ownership Tags -->
+      <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border);">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+          <span style="font-size:14px; font-weight:600; color:var(--gold);">Ownership Tags</span>
+          <span id="tag-status-badge" style="font-size:11px; padding:2px 8px; border-radius:10px; background:var(--surface-2); color:var(--text-dim);">Loading...</span>
+        </div>
+        <div style="font-size:13px; color:var(--text-dim); margin-bottom:12px;">
+          When enabled, Treasurr reads user tags from Sonarr/Radarr to determine who requested content. Your request manager (Overseerr/Jellyseerr) can automatically tag each request with the user who made it.
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+          <input type="checkbox" id="set-tag-ownership-enabled" style="accent-color:var(--gold); width:16px; height:16px;">
+          <label for="set-tag-ownership-enabled" style="font-size:13px; cursor:pointer;">Enable tag-based ownership sync</label>
+        </div>
+
+        <div id="tag-status-panel" style="display:none;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+            <div style="padding:10px; background:var(--surface-2); border-radius:6px;">
+              <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin-bottom:4px;">Sonarr</div>
+              <div id="tag-sonarr-status" style="font-size:13px;">-</div>
+            </div>
+            <div style="padding:10px; background:var(--surface-2); border-radius:6px;">
+              <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin-bottom:4px;">Radarr</div>
+              <div id="tag-radarr-status" style="font-size:13px;">-</div>
+            </div>
+          </div>
+
+          <div id="tag-enable-prompt" style="display:none; padding:10px; background:rgba(248,81,73,0.1); border-radius:6px; margin-bottom:12px;">
+            <div style="font-size:13px; color:var(--red); margin-bottom:8px;">Tag requests not enabled on your request manager. Enable it so new requests get tagged automatically.</div>
+            <button class="btn" onclick="enableTagRequests()" id="btn-enable-tags">Enable Tag Requests</button>
+            <span id="enable-tags-msg" style="font-size:12px; margin-left:8px;"></span>
+          </div>
+
+          <div id="tag-users-section" style="margin-bottom:12px;">
+            <div style="font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin-bottom:6px;">Detected User Tags</div>
+            <div id="tag-users-list" style="font-size:13px; color:var(--text-dim);">-</div>
+          </div>
+
+          <div style="display:flex; gap:12px; font-size:13px; margin-bottom:12px;">
+            <span>Tagged: <strong id="tag-count-tagged" style="color:var(--green);">-</strong></span>
+            <span>Untagged: <strong id="tag-count-untagged" style="color:var(--text-dim);">-</strong></span>
+          </div>
+
+          <div id="tag-changes-section" style="display:none; margin-bottom:12px;">
+            <div style="font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--gold); margin-bottom:6px;">Pending Ownership Changes</div>
+            <div id="tag-changes-list"></div>
+          </div>
+        </div>
+      </div>
+
       <div style="margin-top:16px; text-align:right;">
         <button class="btn btn-gold" onclick="saveSettings()">Save Settings</button>
       </div>
@@ -684,7 +734,7 @@ async function checkAdmin() {
 }
 
 async function loadAdmin() {
-  await Promise.all([loadStats(), loadCrew(), loadSettings(), loadTiers(), loadActivityLog()]);
+  await Promise.all([loadStats(), loadCrew(), loadSettings(), loadTiers(), loadActivityLog(), loadTagStatus()]);
 }
 
 async function loadTiers() {
@@ -1148,6 +1198,9 @@ async function loadSettings() {
     }
     toggleSmtpFields();
 
+    // Tag ownership
+    document.getElementById('set-tag-ownership-enabled').checked = !!s.tag_ownership_enabled;
+
     toggleRescueAction();
   } catch { /* silent */ }
 }
@@ -1228,6 +1281,103 @@ async function sendTestEmail() {
   setTimeout(function() { msg.textContent = ''; }, 6000);
 }
 
+async function loadTagStatus() {
+  var badge = document.getElementById('tag-status-badge');
+  var panel = document.getElementById('tag-status-panel');
+  try {
+    var resp = await fetch(API + '/api/admin/tag-status');
+    if (!resp.ok) {
+      badge.textContent = 'Unavailable';
+      badge.style.background = 'var(--surface-2)';
+      return;
+    }
+    var d = await resp.json();
+    panel.style.display = 'block';
+
+    var sonarrOk = d.overseerr_sonarr_tag_requests;
+    var radarrOk = d.overseerr_radarr_tag_requests;
+
+    document.getElementById('tag-sonarr-status').innerHTML = sonarrOk
+      ? '<span style="color:var(--green);">Tag requests enabled</span>'
+      : '<span style="color:var(--red);">Tag requests disabled</span>';
+    document.getElementById('tag-radarr-status').innerHTML = radarrOk
+      ? '<span style="color:var(--green);">Tag requests enabled</span>'
+      : '<span style="color:var(--red);">Tag requests disabled</span>';
+
+    var enablePrompt = document.getElementById('tag-enable-prompt');
+    enablePrompt.style.display = (!sonarrOk || !radarrOk) ? 'block' : 'none';
+
+    if (sonarrOk && radarrOk) {
+      badge.textContent = 'Active';
+      badge.style.background = 'var(--green)';
+      badge.style.color = '#000';
+    } else {
+      badge.textContent = 'Not configured';
+      badge.style.background = 'rgba(248,81,73,0.2)';
+      badge.style.color = 'var(--red)';
+    }
+
+    // Detected user tags
+    var tags = (d.sonarr_tags || []).concat(d.radarr_tags || []);
+    var list = document.getElementById('tag-users-list');
+    if (tags.length === 0) {
+      list.textContent = 'No user tags detected';
+    } else {
+      list.innerHTML = tags.map(function(t) {
+        return '<span style="display:inline-block; padding:2px 8px; margin:2px; background:var(--surface-2); border-radius:4px; font-size:12px;">' + esc(t.label) + ' &rarr; ' + esc(t.matched_user || '?') + '</span>';
+      }).join('');
+    }
+
+    // Counts
+    document.getElementById('tag-count-tagged').textContent = d.tagged_content_count || 0;
+    document.getElementById('tag-count-untagged').textContent = d.untagged_content_count || 0;
+
+    // Pending changes
+    var changes = d.pending_changes || [];
+    var changesSection = document.getElementById('tag-changes-section');
+    if (changes.length > 0) {
+      changesSection.style.display = 'block';
+      document.getElementById('tag-changes-list').innerHTML = changes.map(function(c) {
+        return '<div style="font-size:12px; padding:4px 0; border-bottom:1px solid var(--border);">' +
+          esc(c.title) + ': <span style="color:var(--text-dim);">' + esc(c.current_owner || 'unowned') +
+          '</span> &rarr; <span style="color:var(--green);">' + esc(c.tag_owner) + '</span></div>';
+      }).join('');
+    } else {
+      changesSection.style.display = 'none';
+    }
+  } catch {
+    badge.textContent = 'Error';
+    badge.style.background = 'rgba(248,81,73,0.2)';
+    badge.style.color = 'var(--red)';
+  }
+}
+
+async function enableTagRequests() {
+  var msg = document.getElementById('enable-tags-msg');
+  var btn = document.getElementById('btn-enable-tags');
+  btn.disabled = true;
+  msg.textContent = 'Enabling...';
+  msg.style.color = 'var(--text-dim)';
+  try {
+    var resp = await fetch(API + '/api/admin/tag-status/enable', { method: 'POST' });
+    var d = await resp.json();
+    if (resp.ok) {
+      msg.textContent = 'Enabled!';
+      msg.style.color = 'var(--green)';
+      document.getElementById('set-tag-ownership-enabled').checked = true;
+      await loadTagStatus();
+    } else {
+      msg.textContent = d.detail || 'Failed';
+      msg.style.color = 'var(--red)';
+    }
+  } catch (e) {
+    msg.textContent = 'Failed: ' + e.message;
+    msg.style.color = 'var(--red)';
+  }
+  btn.disabled = false;
+  setTimeout(function() { msg.textContent = ''; }, 6000);
+}
+
 async function saveSettings() {
   var msg = document.getElementById('settings-msg');
   try {
@@ -1251,6 +1401,7 @@ async function saveSettings() {
         smtp_username: document.getElementById('set-smtp-username').value,
         smtp_password: document.getElementById('set-smtp-password').value,
         webhook_secret: document.getElementById('set-webhook-secret').value,
+        tag_ownership_enabled: document.getElementById('set-tag-ownership-enabled').checked,
       }),
     });
     if (resp.ok) {

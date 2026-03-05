@@ -10,7 +10,9 @@ from treasurr.api.auth import get_current_user
 from treasurr.email import send_email
 from treasurr.engine.deletion import _execute_deletion, scuttle_content
 from treasurr.engine.quota import format_bytes
+from treasurr.sync.clients import OverseerrClient, RadarrClient, SonarrClient
 from treasurr.sync.scheduler import run_full_sync
+from treasurr.sync.tag_sync import _build_tag_user_map
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -164,6 +166,7 @@ async def get_settings(request: Request) -> dict:
         "smtp_username": db_settings.get("smtp_username", ""),
         "smtp_password_set": bool(db_settings.get("smtp_password", "")),
         "webhook_secret_set": bool(db_settings.get("webhook_secret", "")),
+        "tag_ownership_enabled": db_settings.get("tag_ownership_enabled", "true") == "true",
     }
 
 
@@ -248,6 +251,9 @@ async def update_settings(request: Request) -> dict:
         secret = str(body["webhook_secret"]).strip()
         if secret:
             db.set_setting("webhook_secret", secret)
+
+    if "tag_ownership_enabled" in body:
+        db.set_setting("tag_ownership_enabled", "true" if body["tag_ownership_enabled"] else "false")
 
     # Return updated settings
     return await get_settings(request)
@@ -413,4 +419,164 @@ async def admin_force_scuttle(request: Request, content_id: int) -> dict:
         "freed_bytes": result.freed_bytes,
         "freed_display": format_bytes(result.freed_bytes),
         "walked_plank": result.walked_plank,
+    }
+
+
+@router.get("/tag-status")
+async def get_tag_status(request: Request) -> dict:
+    """Check tag ownership status across Overseerr and arr services."""
+    await _require_admin(request)
+    db = _get_db(request)
+    config = _get_config(request)
+
+    all_users = db.get_all_users()
+    users_by_username: dict[str, int] = {
+        u.plex_username.lower(): u.id for u in all_users
+    }
+    username_by_id: dict[int, str] = {u.id: u.plex_username for u in all_users}
+
+    result: dict = {
+        "overseerr_sonarr_tag_requests": False,
+        "overseerr_radarr_tag_requests": False,
+        "sonarr_tags": [],
+        "radarr_tags": [],
+        "unmatched_tags": [],
+        "tagged_content_count": 0,
+        "untagged_content_count": 0,
+        "pending_changes": [],
+    }
+
+    # Check Overseerr settings
+    try:
+        overseerr = OverseerrClient(config.overseerr)
+        for server in await overseerr.get_service_settings("sonarr"):
+            if server.get("tagRequests"):
+                result["overseerr_sonarr_tag_requests"] = True
+        for server in await overseerr.get_service_settings("radarr"):
+            if server.get("tagRequests"):
+                result["overseerr_radarr_tag_requests"] = True
+    except Exception as e:
+        result["overseerr_error"] = str(e)
+
+    all_content = db.get_all_active_content()
+    tagged_ids: set[int] = set()
+
+    # Check Sonarr tags
+    try:
+        sonarr = SonarrClient(config.sonarr)
+        sonarr_tags = await sonarr.get_tags()
+        sonarr_tag_map = _build_tag_user_map(sonarr_tags, users_by_username)
+
+        for tag in sonarr_tags:
+            label = tag.get("label", "")
+            tag_id = tag.get("id")
+            if " - " not in label:
+                continue
+            username = label.split(" - ", 1)[1].strip().lower()
+            if tag_id in sonarr_tag_map:
+                matched_user = username_by_id.get(sonarr_tag_map[tag_id], username)
+                result["sonarr_tags"].append({"label": label, "matched_user": matched_user})
+            else:
+                result["unmatched_tags"].append({"label": label, "service": "sonarr"})
+
+        if sonarr_tag_map:
+            all_series = await sonarr.get_all_series()
+            for series in all_series:
+                user_tag_ids = [t for t in series.tags if t in sonarr_tag_map]
+                if not user_tag_ids:
+                    continue
+                content = db.get_content_by_arr_id(sonarr_id=series.id)
+                if content is None:
+                    continue
+                tagged_ids.add(content.id)
+                tag_user_id = sonarr_tag_map[user_tag_ids[0]]
+                ownership = db.get_ownership(content.id)
+                if ownership and ownership.owner_user_id != tag_user_id and ownership.status == "owned":
+                    result["pending_changes"].append({
+                        "title": content.title,
+                        "media_type": content.media_type,
+                        "current_owner": username_by_id.get(ownership.owner_user_id, "Unknown"),
+                        "tag_owner": username_by_id.get(tag_user_id, "Unknown"),
+                    })
+    except Exception as e:
+        result["sonarr_error"] = str(e)
+
+    # Check Radarr tags
+    try:
+        radarr = RadarrClient(config.radarr)
+        radarr_tags = await radarr.get_tags()
+        radarr_tag_map = _build_tag_user_map(radarr_tags, users_by_username)
+
+        for tag in radarr_tags:
+            label = tag.get("label", "")
+            tag_id = tag.get("id")
+            if " - " not in label:
+                continue
+            username = label.split(" - ", 1)[1].strip().lower()
+            if tag_id in radarr_tag_map:
+                matched_user = username_by_id.get(radarr_tag_map[tag_id], username)
+                result["radarr_tags"].append({"label": label, "matched_user": matched_user})
+            else:
+                result["unmatched_tags"].append({"label": label, "service": "radarr"})
+
+        if radarr_tag_map:
+            all_movies = await radarr.get_all_movies()
+            for movie in all_movies:
+                user_tag_ids = [t for t in movie.tags if t in radarr_tag_map]
+                if not user_tag_ids:
+                    continue
+                content = db.get_content_by_arr_id(radarr_id=movie.id)
+                if content is None:
+                    continue
+                tagged_ids.add(content.id)
+                tag_user_id = radarr_tag_map[user_tag_ids[0]]
+                ownership = db.get_ownership(content.id)
+                if ownership and ownership.owner_user_id != tag_user_id and ownership.status == "owned":
+                    result["pending_changes"].append({
+                        "title": content.title,
+                        "media_type": content.media_type,
+                        "current_owner": username_by_id.get(ownership.owner_user_id, "Unknown"),
+                        "tag_owner": username_by_id.get(tag_user_id, "Unknown"),
+                    })
+    except Exception as e:
+        result["radarr_error"] = str(e)
+
+    result["tagged_content_count"] = len(tagged_ids)
+    result["untagged_content_count"] = len(all_content) - len(tagged_ids)
+
+    return result
+
+
+@router.post("/tag-status/enable")
+async def enable_tag_requests(request: Request) -> dict:
+    """Enable tagRequests on Overseerr and activate tag ownership sync."""
+    await _require_admin(request)
+    db = _get_db(request)
+    config = _get_config(request)
+
+    overseerr = OverseerrClient(config.overseerr)
+    enabled_services = []
+
+    try:
+        for server in await overseerr.get_service_settings("sonarr"):
+            if not server.get("tagRequests"):
+                await overseerr.enable_tag_requests("sonarr", server.get("id", 0))
+                enabled_services.append("sonarr")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to enable Sonarr tags: {e}")
+
+    try:
+        for server in await overseerr.get_service_settings("radarr"):
+            if not server.get("tagRequests"):
+                await overseerr.enable_tag_requests("radarr", server.get("id", 0))
+                enabled_services.append("radarr")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to enable Radarr tags: {e}")
+
+    db.set_setting("tag_ownership_enabled", "true")
+
+    return {
+        "success": True,
+        "enabled_services": enabled_services,
+        "message": "Tag requests enabled. Ownership will sync from arr tags on the next cycle.",
     }

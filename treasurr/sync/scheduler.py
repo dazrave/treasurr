@@ -15,6 +15,7 @@ from treasurr.engine.retention import run_retention_checks
 from treasurr.sync.request_sync import sync_requests
 from treasurr.sync.queue_sync import sync_download_queue
 from treasurr.sync.size_sync import sync_arr_ids, sync_disk_space, sync_posters, sync_seasons, sync_sizes
+from treasurr.sync.tag_sync import sync_tag_ownership
 from treasurr.sync.plank_collection import sync_plank_collection
 from treasurr.sync.watch_sync import sync_users_from_tautulli, sync_watch_history
 
@@ -42,6 +43,12 @@ async def run_full_sync(db: Database, config: Config) -> dict:
     except Exception as e:
         logger.error("Arr ID sync failed: %s", e)
         results["arr_ids_error"] = str(e)
+
+    try:
+        results["tag_ownership"] = await sync_tag_ownership(db, config)
+    except Exception as e:
+        logger.error("Tag ownership sync failed: %s", e)
+        results["tag_ownership_error"] = str(e)
 
     try:
         results["sizes"] = await sync_sizes(db, config)

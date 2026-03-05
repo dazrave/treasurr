@@ -403,6 +403,23 @@ class Database:
         with self.connection() as conn:
             conn.execute("UPDATE content SET poster_path = ? WHERE id = ?", (poster_path, content_id))
 
+    def get_content_by_arr_id(self, sonarr_id: int | None = None, radarr_id: int | None = None) -> Content | None:
+        """Look up active content by its Sonarr or Radarr ID."""
+        with self.connection() as conn:
+            if sonarr_id is not None:
+                row = conn.execute(
+                    "SELECT * FROM content WHERE sonarr_id = ? AND status = 'active'",
+                    (sonarr_id,),
+                ).fetchone()
+            elif radarr_id is not None:
+                row = conn.execute(
+                    "SELECT * FROM content WHERE radarr_id = ? AND status = 'active'",
+                    (radarr_id,),
+                ).fetchone()
+            else:
+                return None
+            return _row_to_content(row) if row else None
+
     def get_all_active_content(self) -> list[Content]:
         with self.connection() as conn:
             rows = conn.execute("SELECT * FROM content WHERE status = 'active' ORDER BY title").fetchall()

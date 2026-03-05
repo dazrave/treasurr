@@ -59,6 +59,7 @@ class ArrMedia:
     tmdb_id: int
     size_bytes: int
     path: str
+    tags: tuple[int, ...] = ()
 
 
 class TautulliClient:
@@ -209,6 +210,32 @@ class OverseerrClient:
     async def get_user(self, user_id: int) -> dict:
         return await self._get(f"/user/{user_id}")
 
+    async def get_service_settings(self, service: str) -> list[dict]:
+        """Get Overseerr settings for a service ('sonarr' or 'radarr')."""
+        return await self._get(f"/settings/{service}")
+
+    async def enable_tag_requests(self, service: str, server_id: int) -> None:
+        """Enable tagRequests on an Overseerr service server config."""
+        headers = {"X-Api-Key": self._api_key}
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # Read current config
+            resp = await client.get(
+                f"{self._base_url}/settings/{service}/{server_id}",
+                headers=headers,
+            )
+            if resp.status_code != 200:
+                raise ApiError("overseerr", f"GET /settings/{service}/{server_id} failed", resp.status_code)
+            config = resp.json()
+            config["tagRequests"] = True
+            # Write back
+            resp = await client.put(
+                f"{self._base_url}/settings/{service}/{server_id}",
+                headers=headers,
+                json=config,
+            )
+            if resp.status_code not in (200, 201):
+                raise ApiError("overseerr", f"PUT /settings/{service}/{server_id} failed", resp.status_code)
+
     async def decline_request(self, request_id: int) -> None:
         """Decline a pending request."""
         headers = {"X-Api-Key": self._api_key}
@@ -238,6 +265,11 @@ class SonarrClient:
                 return resp.json()
             return None
 
+    async def get_tags(self) -> list[dict]:
+        """Fetch all tags. Returns [{"id": 7, "label": "1 - dazrave"}, ...]."""
+        data = await self._request("GET", "/tag")
+        return [{"id": t["id"], "label": t.get("label", "")} for t in (data or [])]
+
     async def get_all_series(self) -> list[ArrMedia]:
         data = await self._request("GET", "/series")
         results = []
@@ -249,6 +281,7 @@ class SonarrClient:
                 tmdb_id=item.get("tmdbId", 0),
                 size_bytes=stats.get("sizeOnDisk", 0),
                 path=item.get("path", ""),
+                tags=tuple(item.get("tags", [])),
             ))
         return results
 
@@ -327,6 +360,11 @@ class RadarrClient:
                 return resp.json()
             return None
 
+    async def get_tags(self) -> list[dict]:
+        """Fetch all tags. Returns [{"id": 7, "label": "1 - dazrave"}, ...]."""
+        data = await self._request("GET", "/tag")
+        return [{"id": t["id"], "label": t.get("label", "")} for t in (data or [])]
+
     async def get_all_movies(self) -> list[ArrMedia]:
         data = await self._request("GET", "/movie")
         results = []
@@ -338,6 +376,7 @@ class RadarrClient:
                 tmdb_id=item.get("tmdbId", 0),
                 size_bytes=movie_file.get("size", item.get("sizeOnDisk", 0)),
                 path=item.get("path", ""),
+                tags=tuple(item.get("tags", [])),
             ))
         return results
 
