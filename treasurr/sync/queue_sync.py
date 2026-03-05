@@ -48,6 +48,8 @@ async def sync_download_queue(db: Database, config: Config) -> int:
                 queue_items.append({
                     "arr_type": "sonarr",
                     "arr_id": series.get("id"),
+                    "queue_id": item.get("id"),
+                    "tmdb_id": series.get("tmdbId", 0),
                     "title": title,
                     "size_bytes": int(size_total),
                     "sizeleft_bytes": int(size_left),
@@ -72,6 +74,8 @@ async def sync_download_queue(db: Database, config: Config) -> int:
                 queue_items.append({
                     "arr_type": "radarr",
                     "arr_id": movie.get("id"),
+                    "queue_id": item.get("id"),
+                    "tmdb_id": movie.get("tmdbId", 0),
                     "title": movie.get("title", "Unknown"),
                     "size_bytes": int(size_total),
                     "sizeleft_bytes": int(size_left),

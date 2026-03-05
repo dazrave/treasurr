@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from treasurr.api.admin import router as admin_router
 from treasurr.api.auth import router as auth_router
 from treasurr.api.treasure import router as treasure_router
+from treasurr.api.webhook import router as webhook_router
 from treasurr.config import Config
 from treasurr.db import Database
 from treasurr.sync.scheduler import start_scheduler
@@ -48,6 +49,7 @@ def create_app(config: Config) -> FastAPI:
     app.include_router(auth_router)
     app.include_router(treasure_router)
     app.include_router(admin_router)
+    app.include_router(webhook_router)
 
     @app.get("/", response_class=HTMLResponse)
     async def index() -> FileResponse:

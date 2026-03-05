@@ -549,6 +549,53 @@ input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
         </div>
       </div>
 
+      <!-- Email & Notifications -->
+      <div style="margin-top:24px; padding-top:20px; border-top:1px solid var(--border);">
+        <span class="setting-label" style="font-size:15px;">Email & Notifications</span>
+        <p style="color:var(--text-dim); font-size:13px; margin-bottom:16px;">Configure SMTP for quota warning emails and webhook authentication for Overseerr integration.</p>
+
+        <div style="margin-bottom:12px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="set-smtp-enabled" style="accent-color:var(--gold); width:16px; height:16px;">
+            <span style="font-size:14px;">Enable email notifications</span>
+          </label>
+        </div>
+
+        <div id="smtp-fields" style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div>
+            <label style="font-size:12px; color:var(--text-dim); display:block; margin-bottom:4px;">SMTP Host</label>
+            <input type="text" id="set-smtp-host" placeholder="smtp.gmail.com" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:13px; box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:12px; color:var(--text-dim); display:block; margin-bottom:4px;">SMTP Port</label>
+            <input type="number" id="set-smtp-port" value="587" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:13px; box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:12px; color:var(--text-dim); display:block; margin-bottom:4px;">From Address</label>
+            <input type="email" id="set-smtp-from" placeholder="treasurr@example.com" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:13px; box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:12px; color:var(--text-dim); display:block; margin-bottom:4px;">Username</label>
+            <input type="text" id="set-smtp-username" placeholder="user@example.com" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:13px; box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:12px; color:var(--text-dim); display:block; margin-bottom:4px;">Password</label>
+            <input type="password" id="set-smtp-password" placeholder="Set if password has been configured" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:13px; box-sizing:border-box;">
+            <span id="smtp-password-hint" style="font-size:11px; color:var(--text-dim); display:none;">Password is set. Leave blank to keep current.</span>
+          </div>
+          <div>
+            <label style="font-size:12px; color:var(--text-dim); display:block; margin-bottom:4px;">Webhook Secret</label>
+            <input type="password" id="set-webhook-secret" placeholder="Set if secret has been configured" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:13px; box-sizing:border-box;">
+            <span id="webhook-secret-hint" style="font-size:11px; color:var(--text-dim); display:none;">Secret is set. Leave blank to keep current.</span>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <button class="btn" onclick="sendTestEmail()" id="btn-test-email">Send Test Email</button>
+          <span id="test-email-msg" style="font-size:12px; margin-left:8px;"></span>
+        </div>
+      </div>
+
       <div style="margin-top:16px; text-align:right;">
         <button class="btn btn-gold" onclick="saveSettings()">Save Settings</button>
       </div>
@@ -889,7 +936,14 @@ function getSortValue(row, col) {
 
 function relativeTime(isoStr) {
   if (!isoStr) return 'never';
-  var d = new Date(isoStr.replace(' ', 'T') + (isoStr.includes('Z') || isoStr.includes('+') ? '' : 'Z'));
+  var d;
+  // Tautulli watched_at is a Unix timestamp (numeric string)
+  if (/^\d+$/.test(isoStr)) {
+    d = new Date(parseInt(isoStr) * 1000);
+  } else {
+    d = new Date(isoStr.replace(' ', 'T') + (isoStr.includes('Z') || isoStr.includes('+') ? '' : 'Z'));
+  }
+  if (isNaN(d.getTime())) return '';
   var now = new Date();
   var diffMs = now - d;
   var diffDays = Math.floor(diffMs / 86400000);
@@ -1080,6 +1134,20 @@ async function loadSettings() {
     msgEl.value = s.server_message || '';
     updateMotdCharCount();
 
+    // Email settings
+    document.getElementById('set-smtp-enabled').checked = !!s.smtp_enabled;
+    document.getElementById('set-smtp-host').value = s.smtp_host || '';
+    document.getElementById('set-smtp-port').value = s.smtp_port || 587;
+    document.getElementById('set-smtp-from').value = s.smtp_from || '';
+    document.getElementById('set-smtp-username').value = s.smtp_username || '';
+    if (s.smtp_password_set) {
+      document.getElementById('smtp-password-hint').style.display = 'block';
+    }
+    if (s.webhook_secret_set) {
+      document.getElementById('webhook-secret-hint').style.display = 'block';
+    }
+    toggleSmtpFields();
+
     toggleRescueAction();
   } catch { /* silent */ }
 }
@@ -1127,6 +1195,39 @@ function toggleRescueAction() {
   if (plankDaysRow) plankDaysRow.style.display = mode === 'disabled' ? 'none' : 'block';
 }
 
+function toggleSmtpFields() {
+  var enabled = document.getElementById('set-smtp-enabled').checked;
+  document.getElementById('smtp-fields').style.opacity = enabled ? '1' : '0.4';
+  document.getElementById('smtp-fields').style.pointerEvents = enabled ? 'auto' : 'none';
+  document.getElementById('btn-test-email').style.display = enabled ? 'inline-block' : 'none';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  var cb = document.getElementById('set-smtp-enabled');
+  if (cb) cb.addEventListener('change', toggleSmtpFields);
+});
+
+async function sendTestEmail() {
+  var msg = document.getElementById('test-email-msg');
+  msg.textContent = 'Sending...';
+  msg.style.color = 'var(--text-dim)';
+  try {
+    var resp = await fetch(API + '/api/admin/settings/test-email', { method: 'POST' });
+    var d = await resp.json();
+    if (resp.ok) {
+      msg.textContent = d.message || 'Sent!';
+      msg.style.color = 'var(--green)';
+    } else {
+      msg.textContent = d.detail || 'Failed';
+      msg.style.color = 'var(--red)';
+    }
+  } catch (e) {
+    msg.textContent = 'Failed: ' + e.message;
+    msg.style.color = 'var(--red)';
+  }
+  setTimeout(function() { msg.textContent = ''; }, 6000);
+}
+
 async function saveSettings() {
   var msg = document.getElementById('settings-msg');
   try {
@@ -1143,6 +1244,13 @@ async function saveSettings() {
         plank_rescue_action: getRadioValue('plank_rescue_action'),
         server_message: document.getElementById('set-server-message').value,
         stale_content_days: parseInt(document.getElementById('set-stale-content-days').value) || 0,
+        smtp_enabled: document.getElementById('set-smtp-enabled').checked,
+        smtp_host: document.getElementById('set-smtp-host').value,
+        smtp_port: parseInt(document.getElementById('set-smtp-port').value) || 587,
+        smtp_from: document.getElementById('set-smtp-from').value,
+        smtp_username: document.getElementById('set-smtp-username').value,
+        smtp_password: document.getElementById('set-smtp-password').value,
+        webhook_secret: document.getElementById('set-webhook-secret').value,
       }),
     });
     if (resp.ok) {

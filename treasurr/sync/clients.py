@@ -209,6 +209,17 @@ class OverseerrClient:
     async def get_user(self, user_id: int) -> dict:
         return await self._get(f"/user/{user_id}")
 
+    async def decline_request(self, request_id: int) -> None:
+        """Decline a pending request."""
+        headers = {"X-Api-Key": self._api_key}
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{self._base_url}/request/{request_id}/decline",
+                headers=headers,
+            )
+            if resp.status_code not in (200, 201, 204):
+                raise ApiError("overseerr", f"POST /request/{request_id}/decline failed", resp.status_code)
+
 
 class SonarrClient:
     """Client for Sonarr API v3."""
@@ -276,6 +287,13 @@ class SonarrClient:
     async def delete_episode_file(self, file_id: int) -> None:
         """Delete a single episode file by its file ID."""
         await self._request("DELETE", f"/episodefile/{file_id}")
+
+    async def delete_queue_item(self, queue_id: int) -> None:
+        """Cancel a download queue item and blocklist it."""
+        await self._request(
+            "DELETE", f"/queue/{queue_id}",
+            params={"removeFromClient": "true", "blocklist": "true"},
+        )
 
     async def lookup_by_tmdb(self, tmdb_id: int) -> ArrMedia | None:
         data = await self._request("GET", "/series/lookup", params={"term": f"tmdb:{tmdb_id}"})
@@ -346,6 +364,13 @@ class RadarrClient:
         """Fetch the download queue. Returns list of queue records."""
         data = await self._request("GET", "/queue", params={"pageSize": 100})
         return (data or {}).get("records", [])
+
+    async def delete_queue_item(self, queue_id: int) -> None:
+        """Cancel a download queue item and blocklist it."""
+        await self._request(
+            "DELETE", f"/queue/{queue_id}",
+            params={"removeFromClient": "true", "blocklist": "true"},
+        )
 
     async def get_diskspace(self) -> list[dict]:
         """Get disk space info from Radarr. Returns list of {path, freeSpace, totalSpace}."""

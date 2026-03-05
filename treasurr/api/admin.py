@@ -7,6 +7,7 @@ import json
 from fastapi import APIRouter, HTTPException, Request
 
 from treasurr.api.auth import get_current_user
+from treasurr.email import send_email
 from treasurr.engine.deletion import _execute_deletion, scuttle_content
 from treasurr.engine.quota import format_bytes
 from treasurr.sync.scheduler import run_full_sync
@@ -156,6 +157,13 @@ async def get_settings(request: Request) -> dict:
         "plank_rescue_action": db_settings.get("plank_rescue_action", config.quotas.plank_rescue_action),
         "server_message": db_settings.get("server_message", DEFAULT_SERVER_MESSAGE),
         "stale_content_days": int(db_settings.get("stale_content_days", "0")),
+        "smtp_enabled": db_settings.get("smtp_enabled", "false") == "true",
+        "smtp_host": db_settings.get("smtp_host", ""),
+        "smtp_port": int(db_settings.get("smtp_port", "587")),
+        "smtp_from": db_settings.get("smtp_from", ""),
+        "smtp_username": db_settings.get("smtp_username", ""),
+        "smtp_password_set": bool(db_settings.get("smtp_password", "")),
+        "webhook_secret_set": bool(db_settings.get("webhook_secret", "")),
     }
 
 
@@ -221,8 +229,52 @@ async def update_settings(request: Request) -> dict:
             raise HTTPException(status_code=400, detail="stale_content_days cannot be negative")
         db.set_setting("stale_content_days", str(val))
 
+    # SMTP settings
+    if "smtp_enabled" in body:
+        db.set_setting("smtp_enabled", "true" if body["smtp_enabled"] else "false")
+    if "smtp_host" in body:
+        db.set_setting("smtp_host", str(body["smtp_host"]).strip())
+    if "smtp_port" in body:
+        db.set_setting("smtp_port", str(int(body["smtp_port"])))
+    if "smtp_from" in body:
+        db.set_setting("smtp_from", str(body["smtp_from"]).strip())
+    if "smtp_username" in body:
+        db.set_setting("smtp_username", str(body["smtp_username"]).strip())
+    if "smtp_password" in body:
+        pw = str(body["smtp_password"]).strip()
+        if pw:  # Only update if non-empty (don't clear on form reload)
+            db.set_setting("smtp_password", pw)
+    if "webhook_secret" in body:
+        secret = str(body["webhook_secret"]).strip()
+        if secret:
+            db.set_setting("webhook_secret", secret)
+
     # Return updated settings
     return await get_settings(request)
+
+
+@router.post("/settings/test-email")
+async def test_email(request: Request) -> dict:
+    """Send a test email to the admin's email address."""
+    admin = await _require_admin(request)
+    db = _get_db(request)
+
+    if not admin.email:
+        raise HTTPException(status_code=400, detail="No email address on your account")
+
+    subject = "Treasurr Test Email"
+    html = """<html><body style="background:#0e1117;color:#e6edf3;padding:32px;font-family:sans-serif;">
+    <h1 style="color:#c9a84c;">Treasurr</h1>
+    <p>If you're reading this, email notifications are working correctly.</p>
+    <p style="color:#8b949e;">Your treasure. Your crew. Your plunder.</p>
+    </body></html>"""
+    text = "Treasurr Test Email\n\nIf you're reading this, email notifications are working correctly."
+
+    success = await send_email(db, admin.email, subject, html, text)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to send test email. Check SMTP settings.")
+
+    return {"message": f"Test email sent to {admin.email}"}
 
 
 @router.get("/stats")

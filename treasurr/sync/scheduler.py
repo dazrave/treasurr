@@ -7,6 +7,8 @@ import logging
 
 from treasurr.config import Config
 from treasurr.db import Database
+from treasurr.engine.alerts import check_quota_alerts
+from treasurr.engine.enforcement import enforce_download_quotas
 from treasurr.engine.plank import run_plank_checks
 from treasurr.engine.promotion import run_promotions
 from treasurr.engine.retention import run_retention_checks
@@ -72,6 +74,12 @@ async def run_full_sync(db: Database, config: Config) -> dict:
         results["download_queue_error"] = str(e)
 
     try:
+        results["enforcement"] = await enforce_download_quotas(db, config)
+    except Exception as e:
+        logger.error("Download quota enforcement failed: %s", e)
+        results["enforcement_error"] = str(e)
+
+    try:
         results["watches"] = await sync_watch_history(db, config)
     except Exception as e:
         logger.error("Watch sync failed: %s", e)
@@ -88,6 +96,12 @@ async def run_full_sync(db: Database, config: Config) -> dict:
     except Exception as e:
         logger.error("Retention checks failed: %s", e)
         results["retention_error"] = str(e)
+
+    try:
+        results["alerts"] = await check_quota_alerts(db, config)
+    except Exception as e:
+        logger.error("Quota alerts failed: %s", e)
+        results["alerts_error"] = str(e)
 
     try:
         results["plank"] = await run_plank_checks(db, config)

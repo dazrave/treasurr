@@ -217,6 +217,18 @@ class Database:
                 ALTER TABLE content_ownership_new RENAME TO content_ownership;
             """)
 
+        # Create email_alerts table if it doesn't exist
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS email_alerts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                alert_type TEXT NOT NULL,
+                content_title TEXT DEFAULT '',
+                sent_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        """)
+
     @contextmanager
     def connection(self) -> Generator[sqlite3.Connection, None, None]:
         conn = self._connect()
@@ -773,6 +785,49 @@ class Database:
         with self.connection() as conn:
             rows = conn.execute("SELECT key, value FROM settings").fetchall()
             return {row["key"]: row["value"] for row in rows}
+
+    # --- Email Alerts ---
+
+    def has_active_alert(self, user_id: int, alert_type: str) -> bool:
+        """Check if an alert of this type has already been sent (avoids spam)."""
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT id FROM email_alerts WHERE user_id = ? AND alert_type = ?",
+                (user_id, alert_type),
+            ).fetchone()
+            return row is not None
+
+    def record_alert(self, user_id: int, alert_type: str, content_title: str = "") -> None:
+        """Record that an alert was sent."""
+        with self.connection() as conn:
+            conn.execute(
+                "INSERT INTO email_alerts (user_id, alert_type, content_title, sent_at) VALUES (?, ?, ?, ?)",
+                (user_id, alert_type, content_title, _now()),
+            )
+
+    def clear_alerts(self, user_id: int, alert_type: str) -> None:
+        """Clear alerts when user drops below threshold (re-arms for next crossing)."""
+        with self.connection() as conn:
+            conn.execute(
+                "DELETE FROM email_alerts WHERE user_id = ? AND alert_type = ?",
+                (user_id, alert_type),
+            )
+
+    def get_user_by_email(self, email: str) -> User | None:
+        """Find a user by email address."""
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM users WHERE email = ?", (email,)
+            ).fetchone()
+            return _row_to_user(row) if row else None
+
+    def get_user_by_username(self, username: str) -> User | None:
+        """Find a user by plex_username (case-insensitive)."""
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM users WHERE LOWER(plex_username) = LOWER(?)", (username,)
+            ).fetchone()
+            return _row_to_user(row) if row else None
 
     # --- Quota Splits ---
 
