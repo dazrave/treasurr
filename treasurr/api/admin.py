@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import secrets
+from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, UploadFile
 
 from treasurr.api.auth import get_current_user
 from treasurr.email import send_email
@@ -45,6 +48,52 @@ async def get_tiers(request: Request) -> dict:
             for t in config.quotas.tiers
         ]
     }
+
+
+@router.post("/api-keys")
+async def create_api_key(request: Request) -> dict:
+    """Generate a new API key. Returns the plaintext key once."""
+    await _require_admin(request)
+    db = _get_db(request)
+    body = await request.json()
+
+    name = str(body.get("name", "")).strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    if len(name) > 100:
+        raise HTTPException(status_code=400, detail="Name must be under 100 characters")
+
+    plaintext_key = secrets.token_urlsafe(48)
+    key_hash = hashlib.sha256(plaintext_key.encode()).hexdigest()
+    record = db.create_api_key(name, key_hash)
+
+    return {
+        "id": record["id"],
+        "name": record["name"],
+        "key": plaintext_key,
+        "created_at": record["created_at"],
+        "warning": "Save this key now. It cannot be retrieved again.",
+    }
+
+
+@router.get("/api-keys")
+async def list_api_keys(request: Request) -> dict:
+    """List all API keys (hash never exposed)."""
+    await _require_admin(request)
+    db = _get_db(request)
+    keys = db.list_api_keys()
+    return {"keys": keys}
+
+
+@router.delete("/api-keys/{key_id}")
+async def revoke_api_key(request: Request, key_id: int) -> dict:
+    """Revoke an API key."""
+    await _require_admin(request)
+    db = _get_db(request)
+    deleted = db.revoke_api_key(key_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="API key not found")
+    return {"message": "API key revoked"}
 
 
 @router.get("/crew")
@@ -150,6 +199,10 @@ async def get_settings(request: Request) -> dict:
     from treasurr.api.treasure import DEFAULT_SERVER_MESSAGE
 
     return {
+        "instance_name": db_settings.get("instance_name", "TREASURR"),
+        "instance_tagline": db_settings.get("instance_tagline", "Your treasure. Your crew. Your plunder."),
+        "custom_css": db_settings.get("custom_css", ""),
+        "logo_filename": db_settings.get("logo_filename", ""),
         "promotion_mode": db_settings.get("promotion_mode", config.quotas.promotion_mode),
         "shared_plunder_max_bytes": int(db_settings.get("shared_plunder_max_bytes", str(config.quotas.shared_plunder_max_bytes))),
         "min_retention_days": int(db_settings.get("min_retention_days", str(config.quotas.min_retention_days))),
@@ -176,6 +229,25 @@ async def update_settings(request: Request) -> dict:
     await _require_admin(request)
     db = _get_db(request)
     body = await request.json()
+
+    # Branding settings
+    if "instance_name" in body:
+        name = str(body["instance_name"]).strip()
+        if len(name) > 50:
+            raise HTTPException(status_code=400, detail="Instance name must be under 50 characters")
+        db.set_setting("instance_name", name)
+
+    if "instance_tagline" in body:
+        tagline = str(body["instance_tagline"]).strip()
+        if len(tagline) > 100:
+            raise HTTPException(status_code=400, detail="Tagline must be under 100 characters")
+        db.set_setting("instance_tagline", tagline)
+
+    if "custom_css" in body:
+        css = str(body["custom_css"])
+        if len(css) > 10000:
+            raise HTTPException(status_code=400, detail="Custom CSS must be under 10000 characters")
+        db.set_setting("custom_css", css)
 
     valid_promotion_modes = ("full_plunder", "split_the_loot", "disabled")
     valid_display_modes = ("exact", "round_up", "percentage")
@@ -580,3 +652,57 @@ async def enable_tag_requests(request: Request) -> dict:
         "enabled_services": enabled_services,
         "message": "Tag requests enabled. Ownership will sync from arr tags on the next cycle.",
     }
+
+
+BRANDING_DIR = Path("/app/data/branding")
+ALLOWED_LOGO_EXTENSIONS = {".png", ".jpg", ".jpeg", ".svg", ".webp", ".ico"}
+MAX_LOGO_SIZE = 512 * 1024  # 512 KB
+
+
+@router.post("/branding/logo")
+async def upload_logo(request: Request, file: UploadFile) -> dict:
+    """Upload a logo image for branding."""
+    await _require_admin(request)
+    db = _get_db(request)
+
+    if file.filename is None:
+        raise HTTPException(status_code=400, detail="No filename provided")
+
+    ext = Path(file.filename).suffix.lower()
+    if ext not in ALLOWED_LOGO_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(sorted(ALLOWED_LOGO_EXTENSIONS))}",
+        )
+
+    content = await file.read()
+    if len(content) > MAX_LOGO_SIZE:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 512 KB.")
+
+    BRANDING_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Remove any existing logo files
+    for existing in BRANDING_DIR.glob("logo.*"):
+        existing.unlink()
+
+    filename = f"logo{ext}"
+    (BRANDING_DIR / filename).write_bytes(content)
+    db.set_setting("logo_filename", filename)
+
+    return {"filename": filename}
+
+
+@router.delete("/branding/logo")
+async def delete_logo(request: Request) -> dict:
+    """Remove the uploaded logo."""
+    await _require_admin(request)
+    db = _get_db(request)
+
+    logo_filename = db.get_setting("logo_filename", "")
+    if logo_filename:
+        logo_path = BRANDING_DIR / logo_filename
+        if logo_path.exists():
+            logo_path.unlink()
+    db.set_setting("logo_filename", "")
+
+    return {"message": "Logo removed"}

@@ -229,6 +229,28 @@ class Database:
             )
         """)
 
+        # Jellyfin support columns
+        if "jellyfin_user_id" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN jellyfin_user_id TEXT DEFAULT ''")
+        if "media_server" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN media_server TEXT DEFAULT 'plex'")
+
+        # Allow sessions without a plex_token (for Jellyfin users)
+        session_cols = {row[1] for row in conn.execute("PRAGMA table_info(sessions)").fetchall()}
+        if "media_server" not in session_cols:
+            conn.execute("ALTER TABLE sessions ADD COLUMN media_server TEXT DEFAULT 'plex'")
+
+        # API keys for external API access
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS api_keys (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                key_hash TEXT UNIQUE NOT NULL,
+                created_at TEXT NOT NULL,
+                last_used_at TEXT
+            )
+        """)
+
     @contextmanager
     def connection(self) -> Generator[sqlite3.Connection, None, None]:
         conn = self._connect()
@@ -283,6 +305,60 @@ class Database:
                 "SELECT * FROM users WHERE plex_username = ?", (username,)
             ).fetchone()
             return _row_to_user(row) if row else None
+
+    def get_user_by_jellyfin_id(self, jellyfin_user_id: str) -> User | None:
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM users WHERE jellyfin_user_id = ?", (jellyfin_user_id,)
+            ).fetchone()
+            return _row_to_user(row) if row else None
+
+    def upsert_jellyfin_user(
+        self,
+        jellyfin_user_id: str,
+        username: str,
+        email: str = "",
+        quota_bytes: int = 536_870_912_000,
+        is_admin: bool = False,
+    ) -> User:
+        with self.connection() as conn:
+            # Check if a user with this jellyfin_user_id already exists
+            existing = conn.execute(
+                "SELECT * FROM users WHERE jellyfin_user_id = ?", (jellyfin_user_id,)
+            ).fetchone()
+            if existing:
+                conn.execute(
+                    """UPDATE users SET plex_username = ?,
+                       email = CASE WHEN ? != '' THEN ? ELSE email END
+                       WHERE jellyfin_user_id = ?""",
+                    (username, email, email, jellyfin_user_id),
+                )
+                row = conn.execute(
+                    "SELECT * FROM users WHERE jellyfin_user_id = ?", (jellyfin_user_id,)
+                ).fetchone()
+            else:
+                # Also check by username for Plex→Jellyfin user linking
+                by_name = conn.execute(
+                    "SELECT * FROM users WHERE plex_username = ?", (username,)
+                ).fetchone()
+                if by_name:
+                    # Link existing Plex user to Jellyfin
+                    conn.execute(
+                        "UPDATE users SET jellyfin_user_id = ?, media_server = 'both' WHERE id = ?",
+                        (jellyfin_user_id, by_name["id"]),
+                    )
+                    row = conn.execute("SELECT * FROM users WHERE id = ?", (by_name["id"],)).fetchone()
+                else:
+                    conn.execute(
+                        """INSERT INTO users (plex_user_id, plex_username, email, quota_bytes,
+                           is_admin, created_at, jellyfin_user_id, media_server)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, 'jellyfin')""",
+                        (f"jf_{jellyfin_user_id}", username, email, quota_bytes, is_admin, _now(), jellyfin_user_id),
+                    )
+                    row = conn.execute(
+                        "SELECT * FROM users WHERE jellyfin_user_id = ?", (jellyfin_user_id,)
+                    ).fetchone()
+            return _row_to_user(row)
 
     def get_all_users(self) -> list[User]:
         with self.connection() as conn:
@@ -1158,6 +1234,62 @@ class Database:
             ).fetchone()
             return _row_to_ownership(row)
 
+    # --- API Keys ---
+
+    def create_api_key(self, name: str, key_hash: str) -> dict:
+        """Create a new API key record. Returns the row as a dict."""
+        now = _now()
+        with self.connection() as conn:
+            conn.execute(
+                "INSERT INTO api_keys (name, key_hash, created_at) VALUES (?, ?, ?)",
+                (name, key_hash, now),
+            )
+            row = conn.execute(
+                "SELECT id, name, created_at, last_used_at FROM api_keys WHERE key_hash = ?",
+                (key_hash,),
+            ).fetchone()
+            return dict(row)
+
+    def get_api_key_by_hash(self, key_hash: str) -> dict | None:
+        """Look up an API key by its hash for authentication."""
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM api_keys WHERE key_hash = ?", (key_hash,)
+            ).fetchone()
+            return dict(row) if row else None
+
+    def list_api_keys(self) -> list[dict]:
+        """List all API keys (never returns key_hash)."""
+        with self.connection() as conn:
+            rows = conn.execute(
+                "SELECT id, name, created_at, last_used_at FROM api_keys ORDER BY created_at DESC"
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def revoke_api_key(self, key_id: int) -> bool:
+        """Delete an API key by id. Returns True if a row was deleted."""
+        with self.connection() as conn:
+            cursor = conn.execute("DELETE FROM api_keys WHERE id = ?", (key_id,))
+            return cursor.rowcount > 0
+
+    def touch_api_key(self, key_id: int) -> None:
+        """Update last_used_at timestamp for an API key."""
+        with self.connection() as conn:
+            conn.execute(
+                "UPDATE api_keys SET last_used_at = ? WHERE id = ?", (_now(), key_id),
+            )
+
+    # --- Latest Content ---
+
+    def get_latest_content(self, limit: int = 20) -> list[Content]:
+        """Get the most recently added active content."""
+        with self.connection() as conn:
+            rows = conn.execute(
+                "SELECT * FROM content WHERE status = 'active' ORDER BY added_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            return [_row_to_content(r) for r in rows]
+
     # --- Admin Activity Feed ---
 
     def get_admin_activity_feed(self, limit: int = 50) -> list[dict]:
@@ -1213,6 +1345,7 @@ class Database:
 # --- Row mappers ---
 
 def _row_to_user(row: sqlite3.Row) -> User:
+    keys = row.keys()
     return User(
         id=row["id"],
         plex_user_id=row["plex_user_id"],
@@ -1224,6 +1357,8 @@ def _row_to_user(row: sqlite3.Row) -> User:
         created_at=row["created_at"],
         auto_scuttle_days=row["auto_scuttle_days"] or 0,
         onboarded=bool(row["onboarded"]),
+        jellyfin_user_id=row["jellyfin_user_id"] if "jellyfin_user_id" in keys else "",
+        media_server=row["media_server"] if "media_server" in keys else "plex",
     )
 
 

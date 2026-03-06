@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Treasurr - Admin</title>
+<title>{{INSTANCE_NAME}} - Admin</title>
 <style>
 :root {
   --bg: #0e1117;
@@ -318,11 +318,12 @@ input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
   .crew-cards-mobile { display: none; }
 }
 </style>
+<style>{{CUSTOM_CSS}}</style>
 </head>
 <body>
 
 <div class="header">
-  <div class="header-brand">&#9875; TREASURR <span class="admin-label">- Admin</span></div>
+  <div class="header-brand">{{LOGO_HTML}} {{INSTANCE_NAME}} <span class="admin-label">- Admin</span></div>
   <div class="header-nav">
     <a href="/">&#8592; Dashboard</a>
     <button class="btn btn-gold" onclick="triggerSync()">&#128260; Sync Now</button>
@@ -366,6 +367,61 @@ input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
     <div style="padding: 20px;">
       <div id="cap-warning" style="display:none; background:#d29922; color:#000; padding:12px 16px; border-radius:8px; margin-bottom:16px; font-weight:600;">
         &#9888; Shared space is almost full! No new content will be promoted until space is freed.
+      </div>
+
+      <!-- Branding -->
+      <div style="margin-bottom:24px; padding-bottom:20px; border-bottom:1px solid var(--border);">
+        <span class="setting-label" style="font-size:15px;">Branding</span>
+        <p style="color:var(--text-dim); font-size:13px; margin-bottom:16px;">Customise how your instance looks to users.</p>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+          <div>
+            <label style="font-size:12px; color:var(--text-dim); display:block; margin-bottom:4px;">Instance Name</label>
+            <input type="text" id="set-instance-name" maxlength="50" placeholder="TREASURR" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:13px; box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:12px; color:var(--text-dim); display:block; margin-bottom:4px;">Tagline</label>
+            <input type="text" id="set-instance-tagline" maxlength="100" placeholder="Your treasure. Your crew. Your plunder." style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:13px; box-sizing:border-box;">
+          </div>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <label style="font-size:12px; color:var(--text-dim); display:block; margin-bottom:4px;">Logo</label>
+          <div id="logo-preview" style="margin-bottom:8px; display:none;">
+            <img id="logo-preview-img" src="" alt="Current logo" style="height:40px; width:auto; border-radius:4px; background:var(--surface-2); padding:4px;">
+            <button class="btn" onclick="removeLogo()" style="margin-left:8px; font-size:11px;">Remove</button>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <input type="file" id="logo-file-input" accept=".png,.jpg,.jpeg,.svg,.webp,.ico" style="font-size:12px; color:var(--text-dim);">
+            <button class="btn" onclick="uploadLogo()">Upload</button>
+            <span id="logo-upload-msg" style="font-size:12px;"></span>
+          </div>
+          <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">PNG, JPG, SVG, WebP, or ICO. Max 512 KB.</div>
+        </div>
+
+        <div style="margin-bottom:8px;">
+          <label style="font-size:12px; color:var(--text-dim); display:block; margin-bottom:4px;">Custom CSS</label>
+          <textarea id="set-custom-css" style="width:100%; height:150px; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-family:var(--font-mono); font-size:12px; resize:vertical; box-sizing:border-box;" placeholder=":root { --gold: #ff6b6b; }"></textarea>
+          <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">Override any CSS variables or styles. Changes apply to both the dashboard and admin panel.</div>
+        </div>
+
+        <details style="margin-top:8px;">
+          <summary style="font-size:12px; color:var(--gold); cursor:pointer;">CSS Variable Reference</summary>
+          <pre style="font-size:11px; color:var(--text-dim); margin-top:8px; padding:12px; background:var(--surface-2); border-radius:6px; overflow-x:auto;">:root {
+  --bg: #0e1117;          /* Page background */
+  --surface: #161b22;     /* Header, card backgrounds */
+  --surface-2: #1c2333;   /* Input backgrounds, deeper cards */
+  --border: #30363d;      /* Border colour */
+  --gold: #c9a84c;        /* Primary accent */
+  --gold-dim: #8b7335;    /* Dimmed accent */
+  --gold-bright: #e6c65a; /* Bright accent (hover) */
+  --text: #e6edf3;        /* Primary text */
+  --text-dim: #8b949e;    /* Secondary text */
+  --green: #3fb950;       /* Success, positive */
+  --red: #f85149;         /* Error, negative */
+  --blue: #58a6ff;        /* Links, info */
+}</pre>
+        </details>
       </div>
 
       <!-- Server Message (MOTD) -->
@@ -653,6 +709,31 @@ input[type="checkbox"] { accent-color: var(--gold); cursor: pointer; }
     </div>
   </div>
 
+  <!-- API Keys -->
+  <div class="section">
+    <div class="section-header">
+      <span>API Keys</span>
+    </div>
+    <div style="padding:16px;">
+      <p class="dim" style="font-size:13px; margin-bottom:16px;">API keys grant full read/write access to the <code>/api/v1/</code> endpoints. Treat them like passwords.</p>
+      <div style="display:flex; gap:8px; margin-bottom:16px; align-items:center;">
+        <input type="text" id="api-key-name" placeholder="Key name (e.g. companion-site)" maxlength="100" style="flex:1; padding:8px 12px; background:var(--surface-2); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:13px;">
+        <button class="btn btn-gold" onclick="createApiKey()">Generate Key</button>
+      </div>
+      <div id="api-key-reveal" style="display:none; margin-bottom:16px; padding:12px 16px; border:2px solid var(--gold); border-radius:8px; background:var(--surface-2);">
+        <div style="font-size:12px; color:var(--gold); font-weight:600; margin-bottom:6px;">Save this key now - it cannot be retrieved again</div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <code id="api-key-value" style="flex:1; font-size:13px; word-break:break-all; color:var(--text);"></code>
+          <button class="btn btn-sm" onclick="copyApiKey()">Copy</button>
+        </div>
+      </div>
+      <table class="crew-table" style="width:100%;">
+        <thead><tr><th>Name</th><th>Created</th><th>Last Used</th><th></th></tr></thead>
+        <tbody id="api-keys-body"></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- Crew Table -->
   <div class="section">
     <div class="section-header">
@@ -734,7 +815,7 @@ async function checkAdmin() {
 }
 
 async function loadAdmin() {
-  await Promise.all([loadStats(), loadCrew(), loadSettings(), loadTiers(), loadActivityLog(), loadTagStatus()]);
+  await Promise.all([loadStats(), loadCrew(), loadSettings(), loadTiers(), loadActivityLog(), loadTagStatus(), loadApiKeys()]);
 }
 
 async function loadTiers() {
@@ -1170,6 +1251,12 @@ async function loadSettings() {
     if (!resp.ok) return;
     const s = await resp.json();
 
+    // Branding
+    document.getElementById('set-instance-name').value = s.instance_name || '';
+    document.getElementById('set-instance-tagline').value = s.instance_tagline || '';
+    document.getElementById('set-custom-css').value = s.custom_css || '';
+    updateLogoPreview(s.logo_filename || '');
+
     setRadioValue('promotion_mode', s.promotion_mode || 'full_plunder');
     setRadioValue('plank_mode', s.plank_mode || 'adrift');
     setRadioValue('plank_rescue_action', s.plank_rescue_action || 'promote');
@@ -1378,6 +1465,72 @@ async function enableTagRequests() {
   setTimeout(function() { msg.textContent = ''; }, 6000);
 }
 
+function updateLogoPreview(filename) {
+  var preview = document.getElementById('logo-preview');
+  var img = document.getElementById('logo-preview-img');
+  if (filename) {
+    img.src = '/branding/' + filename + '?t=' + Date.now();
+    preview.style.display = 'flex';
+  } else {
+    preview.style.display = 'none';
+    img.src = '';
+  }
+}
+
+async function uploadLogo() {
+  var msg = document.getElementById('logo-upload-msg');
+  var fileInput = document.getElementById('logo-file-input');
+  if (!fileInput.files || !fileInput.files[0]) {
+    msg.textContent = 'Select a file first';
+    msg.style.color = 'var(--red)';
+    return;
+  }
+  var formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  msg.textContent = 'Uploading...';
+  msg.style.color = 'var(--text-dim)';
+  try {
+    var resp = await fetch(API + '/api/admin/branding/logo', {
+      method: 'POST',
+      body: formData,
+    });
+    var d = await resp.json();
+    if (resp.ok) {
+      msg.textContent = 'Logo uploaded!';
+      msg.style.color = 'var(--green)';
+      updateLogoPreview(d.filename);
+      fileInput.value = '';
+    } else {
+      msg.textContent = d.detail || 'Upload failed';
+      msg.style.color = 'var(--red)';
+    }
+  } catch (e) {
+    msg.textContent = 'Upload failed: ' + e.message;
+    msg.style.color = 'var(--red)';
+  }
+  setTimeout(function() { msg.textContent = ''; }, 6000);
+}
+
+async function removeLogo() {
+  var msg = document.getElementById('logo-upload-msg');
+  try {
+    var resp = await fetch(API + '/api/admin/branding/logo', { method: 'DELETE' });
+    if (resp.ok) {
+      updateLogoPreview('');
+      msg.textContent = 'Logo removed';
+      msg.style.color = 'var(--green)';
+    } else {
+      var d = await resp.json();
+      msg.textContent = d.detail || 'Failed';
+      msg.style.color = 'var(--red)';
+    }
+  } catch (e) {
+    msg.textContent = 'Failed: ' + e.message;
+    msg.style.color = 'var(--red)';
+  }
+  setTimeout(function() { msg.textContent = ''; }, 6000);
+}
+
 async function saveSettings() {
   var msg = document.getElementById('settings-msg');
   try {
@@ -1385,6 +1538,9 @@ async function saveSettings() {
       method: 'PUT',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
+        instance_name: document.getElementById('set-instance-name').value,
+        instance_tagline: document.getElementById('set-instance-tagline').value,
+        custom_css: document.getElementById('set-custom-css').value,
         promotion_mode: getRadioValue('promotion_mode'),
         shared_plunder_max_bytes: parseInt(document.getElementById('set-plunder-cap').value) || 0,
         min_retention_days: parseInt(document.getElementById('set-min-retention').value) || 0,
@@ -1476,6 +1632,64 @@ async function triggerSync() {
   } catch (e) {
     msg.textContent = 'Sync failed: ' + e.message;
   }
+}
+
+// --- API Keys ---
+
+async function loadApiKeys() {
+  try {
+    var resp = await fetch(API + '/api/admin/api-keys');
+    if (!resp.ok) return;
+    var d = await resp.json();
+    var keys = d.keys || [];
+    var tbody = document.getElementById('api-keys-body');
+    if (keys.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-dim); padding:16px;">No API keys created yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = keys.map(function(k) {
+      var lastUsed = k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : 'Never';
+      return '<tr>' +
+        '<td>' + esc(k.name) + '</td>' +
+        '<td>' + new Date(k.created_at).toLocaleDateString() + '</td>' +
+        '<td>' + lastUsed + '</td>' +
+        '<td><button class="btn btn-sm" style="color:var(--red); border-color:var(--red);" onclick="revokeApiKey(' + k.id + ',\'' + esc(k.name) + '\')">Revoke</button></td>' +
+        '</tr>';
+    }).join('');
+  } catch { /* silent */ }
+}
+
+async function createApiKey() {
+  var nameInput = document.getElementById('api-key-name');
+  var name = nameInput.value.trim();
+  if (!name) { nameInput.focus(); return; }
+  try {
+    var resp = await fetch(API + '/api/admin/api-keys', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name: name})
+    });
+    if (!resp.ok) { var e = await resp.json(); alert(e.detail || 'Failed'); return; }
+    var d = await resp.json();
+    document.getElementById('api-key-value').textContent = d.key;
+    document.getElementById('api-key-reveal').style.display = 'block';
+    nameInput.value = '';
+    loadApiKeys();
+  } catch (e) { alert('Failed to create key: ' + e.message); }
+}
+
+function copyApiKey() {
+  var key = document.getElementById('api-key-value').textContent;
+  navigator.clipboard.writeText(key);
+}
+
+async function revokeApiKey(id, name) {
+  if (!confirm('Revoke API key "' + name + '"? Any integrations using this key will stop working.')) return;
+  try {
+    await fetch(API + '/api/admin/api-keys/' + id, {method: 'DELETE'});
+    document.getElementById('api-key-reveal').style.display = 'none';
+    loadApiKeys();
+  } catch { /* silent */ }
 }
 
 function esc(s) {
