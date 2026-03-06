@@ -49,6 +49,12 @@ class PlexConfig:
 
 
 @dataclass(frozen=True)
+class JellyfinConfig:
+    url: str = ""
+    api_key: str = ""
+
+
+@dataclass(frozen=True)
 class SafetyConfig:
     max_deletions_per_hour: int = 10
 
@@ -67,6 +73,8 @@ class Config:
     sonarr: ApiConfig = field(default_factory=lambda: ApiConfig(url="", key=""))
     radarr: ApiConfig = field(default_factory=lambda: ApiConfig(url="", key=""))
     plex: PlexConfig = field(default_factory=PlexConfig)
+    jellyfin: JellyfinConfig = field(default_factory=JellyfinConfig)
+    media_server: str = "plex"  # "plex", "jellyfin", or "both"
     quotas: QuotaConfig = field(default_factory=QuotaConfig)
     safety: SafetyConfig = field(default_factory=SafetyConfig)
 
@@ -82,6 +90,7 @@ def load_config(path: str | Path = "config.yaml") -> Config:
     general = raw.get("general", {})
     apis = raw.get("apis", {})
     plex_raw = raw.get("plex", {})
+    jellyfin_raw = raw.get("jellyfin", {})
     quotas_raw = raw.get("quotas", {})
     safety_raw = raw.get("safety", {})
 
@@ -119,6 +128,11 @@ def load_config(path: str | Path = "config.yaml") -> Config:
             url=plex_raw.get("url", ""),
             token=os.environ.get("TREASURR_PLEX_TOKEN", plex_raw.get("token", "")),
         ),
+        jellyfin=JellyfinConfig(
+            url=jellyfin_raw.get("url", ""),
+            api_key=os.environ.get("TREASURR_JELLYFIN_API_KEY", jellyfin_raw.get("api_key", "")),
+        ),
+        media_server=general.get("media_server", "plex"),
         quotas=QuotaConfig(
             default_bytes=quotas_raw.get("default_bytes", 536_870_912_000),
             promotion_threshold=quotas_raw.get("promotion_threshold", 2),

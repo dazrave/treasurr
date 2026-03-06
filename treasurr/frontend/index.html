@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Treasurr</title>
+<title>{{INSTANCE_NAME}}</title>
 <style>
 :root {
   --bg: #0e1117;
@@ -896,15 +896,25 @@ a:hover { color: var(--gold-bright); }
   }
 }
 </style>
+<style>{{CUSTOM_CSS}}</style>
 </head>
 <body>
 
 <div id="app">
   <!-- Login Screen -->
   <div id="login-screen" class="login-screen" style="display:none;">
-    <h1>TREASURR</h1>
-    <p>Your treasure. Your crew. Your plunder.</p>
-    <button class="btn btn-login" onclick="startPlexLogin()">Sign in with Plex</button>
+    <h1>{{INSTANCE_NAME}}</h1>
+    <p>{{INSTANCE_TAGLINE}}</p>
+    <div id="login-buttons">
+      <button class="btn btn-login" onclick="startPlexLogin()">Sign in with Plex</button>
+      <button class="btn btn-login" onclick="showJellyfinLogin()" style="margin-top:8px;">Sign in with Jellyfin</button>
+    </div>
+    <div id="jellyfin-login-form" style="display:none; margin-top:16px; text-align:center;">
+      <input type="text" id="jf-username" placeholder="Username" style="display:block; margin:8px auto; padding:8px 12px; border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:6px; width:220px;">
+      <input type="password" id="jf-password" placeholder="Password" style="display:block; margin:8px auto; padding:8px 12px; border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:6px; width:220px;">
+      <button class="btn btn-login" onclick="doJellyfinLogin()" style="margin-top:8px;">Sign In</button>
+      <button class="btn" onclick="hideJellyfinLogin()" style="margin-top:4px; font-size:12px;">Back</button>
+    </div>
   </div>
 
   <!-- Onboarding Wizard -->
@@ -931,7 +941,7 @@ a:hover { color: var(--gold-bright); }
     </div>
 
     <div class="header">
-      <div class="header-brand">&#9875; TREASURR</div>
+      <div class="header-brand">{{LOGO_HTML}} {{INSTANCE_NAME}}</div>
       <div class="header-user">
         <span class="username" id="header-username"></span>
         <button class="btn" onclick="logout()">Logout</button>
@@ -1186,6 +1196,39 @@ async function pollForAuth(pinId, authWindow) {
       }
     } catch { /* keep polling */ }
     if (authWindow && authWindow.closed) break;
+  }
+}
+
+function showJellyfinLogin() {
+  document.getElementById('login-buttons').style.display = 'none';
+  document.getElementById('jellyfin-login-form').style.display = 'block';
+  document.getElementById('jf-username').focus();
+}
+
+function hideJellyfinLogin() {
+  document.getElementById('jellyfin-login-form').style.display = 'none';
+  document.getElementById('login-buttons').style.display = 'block';
+}
+
+async function doJellyfinLogin() {
+  const username = document.getElementById('jf-username').value.trim();
+  const password = document.getElementById('jf-password').value;
+  if (!username) { showToast('Username required', 'error'); return; }
+  try {
+    const resp = await fetch(API + '/api/auth/jellyfin', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username, password}),
+    });
+    const data = await resp.json();
+    if (data.authenticated) {
+      currentUser = data.user;
+      showDashboard();
+    } else {
+      showToast(data.detail || 'Authentication failed', 'error');
+    }
+  } catch (e) {
+    showToast('Jellyfin login failed: ' + e.message, 'error');
   }
 }
 

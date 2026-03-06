@@ -241,6 +241,63 @@ async def logout(request: Request, response: Response) -> dict:
     return {"message": "Logged out"}
 
 
+@router.post("/jellyfin")
+async def jellyfin_auth(request: Request, response: Response) -> dict:
+    """Authenticate via Jellyfin username/password."""
+    body = await request.json()
+    username = body.get("username", "")
+    password = body.get("password", "")
+    if not username:
+        raise HTTPException(status_code=400, detail="username required")
+
+    config = _get_config(request)
+    if not config.jellyfin.url:
+        raise HTTPException(status_code=400, detail="Jellyfin not configured")
+
+    from treasurr.sync.clients import JellyfinClient
+    jf = JellyfinClient(config.jellyfin)
+    auth_result = await jf.authenticate_user(username, password)
+    if auth_result is None:
+        raise HTTPException(status_code=401, detail="Invalid Jellyfin credentials")
+
+    jf_user = auth_result.get("User", {})
+    jellyfin_user_id = jf_user.get("Id", "")
+    jf_username = jf_user.get("Name", username)
+    is_admin = jf_user.get("Policy", {}).get("IsAdministrator", False)
+    access_token = auth_result.get("AccessToken", "")
+
+    db = _get_db(request)
+    user = db.upsert_jellyfin_user(
+        jellyfin_user_id=jellyfin_user_id,
+        username=jf_username,
+        quota_bytes=config.quotas.default_bytes,
+        is_admin=is_admin,
+    )
+
+    # Create session
+    session_token = secrets.token_urlsafe(48)
+    expires_at = (datetime.now(timezone.utc) + timedelta(days=SESSION_DURATION_DAYS)).isoformat()
+    db.create_session(session_token, user.id, access_token or "jellyfin", expires_at)
+
+    response.set_cookie(
+        key="treasurr_session",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=SESSION_DURATION_DAYS * 86400,
+    )
+
+    return {
+        "authenticated": True,
+        "user": {
+            "id": user.id,
+            "username": user.plex_username,
+            "is_admin": user.is_admin,
+        },
+    }
+
+
 async def _is_server_owner(plex_token: str, client_id: str) -> bool:
     """Check if the authenticated user owns any Plex servers."""
     try:

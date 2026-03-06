@@ -17,7 +17,12 @@ from treasurr.sync.queue_sync import sync_download_queue
 from treasurr.sync.size_sync import sync_arr_ids, sync_disk_space, sync_posters, sync_seasons, sync_sizes
 from treasurr.sync.tag_sync import sync_tag_ownership
 from treasurr.sync.plank_collection import sync_plank_collection
-from treasurr.sync.watch_sync import sync_users_from_tautulli, sync_watch_history
+from treasurr.sync.watch_sync import (
+    sync_users_from_jellyfin,
+    sync_users_from_tautulli,
+    sync_watch_history,
+    sync_watch_history_from_jellyfin,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +31,30 @@ async def run_full_sync(db: Database, config: Config) -> dict:
     """Run all sync operations in sequence. Returns summary dict."""
     results = {}
 
-    try:
-        results["users"] = await sync_users_from_tautulli(db, config)
-    except Exception as e:
-        logger.error("User sync failed: %s", e)
-        results["users_error"] = str(e)
+    use_plex = config.media_server in ("plex", "both")
+    use_jellyfin = config.media_server in ("jellyfin", "both")
+
+    if use_plex:
+        try:
+            results["users"] = await sync_users_from_tautulli(db, config)
+        except Exception as e:
+            logger.error("Tautulli user sync failed: %s", e)
+            results["users_error"] = str(e)
+
+    if use_jellyfin:
+        try:
+            results["jellyfin_users"] = await sync_users_from_jellyfin(db, config)
+        except Exception as e:
+            logger.error("Jellyfin user sync failed: %s", e)
+            results["jellyfin_users_error"] = str(e)
+
+    if not use_plex and not use_jellyfin:
+        # Fallback: try Tautulli
+        try:
+            results["users"] = await sync_users_from_tautulli(db, config)
+        except Exception as e:
+            logger.error("User sync failed: %s", e)
+            results["users_error"] = str(e)
 
     try:
         results["requests"] = await sync_requests(db, config)
@@ -86,11 +110,26 @@ async def run_full_sync(db: Database, config: Config) -> dict:
         logger.error("Download quota enforcement failed: %s", e)
         results["enforcement_error"] = str(e)
 
-    try:
-        results["watches"] = await sync_watch_history(db, config)
-    except Exception as e:
-        logger.error("Watch sync failed: %s", e)
-        results["watches_error"] = str(e)
+    if use_plex:
+        try:
+            results["watches"] = await sync_watch_history(db, config)
+        except Exception as e:
+            logger.error("Plex watch sync failed: %s", e)
+            results["watches_error"] = str(e)
+
+    if use_jellyfin:
+        try:
+            results["jellyfin_watches"] = await sync_watch_history_from_jellyfin(db, config)
+        except Exception as e:
+            logger.error("Jellyfin watch sync failed: %s", e)
+            results["jellyfin_watches_error"] = str(e)
+
+    if not use_plex and not use_jellyfin:
+        try:
+            results["watches"] = await sync_watch_history(db, config)
+        except Exception as e:
+            logger.error("Watch sync failed: %s", e)
+            results["watches_error"] = str(e)
 
     try:
         results["promotions"] = await run_promotions(db, config)

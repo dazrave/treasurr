@@ -17,6 +17,8 @@ class User:
     created_at: str = ""
     auto_scuttle_days: int = 0
     onboarded: bool = False
+    jellyfin_user_id: str = ""
+    media_server: str = "plex"  # "plex" or "jellyfin"
 
 
 @dataclass(frozen=True)

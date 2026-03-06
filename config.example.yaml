@@ -4,6 +4,7 @@ general:
   port: 8080
   sync_interval_seconds: 900
   timezone: "Europe/London"
+  media_server: "plex"  # "plex", "jellyfin", or "both"
 
 apis:
   tautulli:
@@ -21,6 +22,11 @@ plex:
   url: "http://plex:32400"
   # Token via env: TREASURR_PLEX_TOKEN, or set directly:
   # token: "your-plex-token"
+
+jellyfin:
+  url: "http://jellyfin:8096"
+  # API key via env: TREASURR_JELLYFIN_API_KEY, or set directly:
+  # api_key: "your-jellyfin-api-key"
 
 quotas:
   default_bytes: 536870912000     # 500 GB

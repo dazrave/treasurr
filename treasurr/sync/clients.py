@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 
-from treasurr.config import ApiConfig, PlexConfig
+from treasurr.config import ApiConfig, JellyfinConfig, PlexConfig
 
 logger = logging.getLogger(__name__)
 
@@ -592,3 +592,205 @@ class PlexClient:
         """Get the Plex server machine identifier."""
         data = await self._get("/")
         return data.get("MediaContainer", {}).get("machineIdentifier", "")
+
+
+@dataclass(frozen=True)
+class JellyfinUser:
+    user_id: str
+    username: str
+    is_admin: bool
+
+
+@dataclass(frozen=True)
+class JellyfinWatchRecord:
+    user_id: str
+    item_id: str
+    title: str
+    media_type: str  # 'movie' or 'episode'
+    watched_at: str
+    played: bool
+
+
+class JellyfinClient:
+    """Client for Jellyfin API."""
+
+    def __init__(self, config: JellyfinConfig) -> None:
+        self._base_url = config.url.rstrip("/")
+        self._api_key = config.api_key
+
+    def _headers(self) -> dict:
+        return {"X-Emby-Token": self._api_key}
+
+    async def _get(self, path: str, **params: Any) -> Any:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(
+                f"{self._base_url}{path}",
+                headers=self._headers(),
+                params=params,
+            )
+            if resp.status_code != 200:
+                raise ApiError("jellyfin", f"GET {path} failed", resp.status_code)
+            return resp.json()
+
+    async def get_users(self) -> list[JellyfinUser]:
+        """Fetch all Jellyfin users."""
+        data = await self._get("/Users")
+        return [
+            JellyfinUser(
+                user_id=u["Id"],
+                username=u.get("Name", ""),
+                is_admin=u.get("Policy", {}).get("IsAdministrator", False),
+            )
+            for u in data
+        ]
+
+    async def authenticate_user(self, username: str, password: str) -> dict | None:
+        """Authenticate a user by username/password. Returns user data or None."""
+        headers = {
+            "Content-Type": "application/json",
+            "X-Emby-Authorization": (
+                'MediaBrowser Client="Treasurr", Device="Server", '
+                'DeviceId="treasurr-server", Version="1.0.0"'
+            ),
+        }
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                f"{self._base_url}/Users/AuthenticateByName",
+                headers=headers,
+                json={"Username": username, "Pw": password},
+            )
+            if resp.status_code != 200:
+                return None
+            return resp.json()
+
+    async def get_user_by_id(self, user_id: str) -> dict | None:
+        """Get a specific user by ID."""
+        try:
+            return await self._get(f"/Users/{user_id}")
+        except ApiError:
+            return None
+
+    async def get_watch_history(self, user_id: str, limit: int = 500) -> list[JellyfinWatchRecord]:
+        """Get recently played items for a user via Playback Reporting plugin or Items API."""
+        records = []
+        try:
+            data = await self._get(
+                f"/Users/{user_id}/Items",
+                SortBy="DatePlayed",
+                SortOrder="Descending",
+                Filters="IsPlayed",
+                Recursive="true",
+                IncludeItemTypes="Movie,Episode",
+                Fields="ProviderIds,DateCreated,PremiereDate,ProductionYear,SeriesName",
+                Limit=limit,
+            )
+            for item in data.get("Items", []):
+                item_type = item.get("Type", "")
+                media_type = "movie" if item_type == "Movie" else "episode"
+                title = item.get("SeriesName", item.get("Name", "")) if media_type == "episode" else item.get("Name", "")
+                user_data = item.get("UserData", {})
+                records.append(JellyfinWatchRecord(
+                    user_id=user_id,
+                    item_id=item.get("Id", ""),
+                    title=title,
+                    media_type=media_type,
+                    watched_at=user_data.get("LastPlayedDate", ""),
+                    played=user_data.get("Played", False),
+                ))
+        except ApiError as e:
+            logger.warning("Failed to get Jellyfin watch history for user %s: %s", user_id, e)
+        return records
+
+    async def get_libraries(self) -> list[dict]:
+        """Get all Jellyfin libraries."""
+        data = await self._get("/Library/VirtualFolders")
+        return [
+            {
+                "id": lib.get("ItemId", ""),
+                "name": lib.get("Name", ""),
+                "type": lib.get("CollectionType", ""),
+            }
+            for lib in data
+        ]
+
+    async def search_by_title(self, title: str, media_types: str = "Movie,Series") -> list[dict]:
+        """Search for media by title across all libraries."""
+        data = await self._get(
+            "/Items",
+            SearchTerm=title,
+            IncludeItemTypes=media_types,
+            Recursive="true",
+            Fields="ProviderIds",
+            Limit=10,
+        )
+        return [
+            {
+                "id": item.get("Id", ""),
+                "name": item.get("Name", ""),
+                "type": item.get("Type", ""),
+                "tmdb_id": item.get("ProviderIds", {}).get("Tmdb", ""),
+            }
+            for item in data.get("Items", [])
+        ]
+
+    async def get_item_by_tmdb(self, tmdb_id: int, media_type: str = "Movie") -> dict | None:
+        """Find a Jellyfin item by TMDB ID."""
+        item_type = "Movie" if media_type == "movie" else "Series"
+        try:
+            data = await self._get(
+                "/Items",
+                AnyProviderIdEquals=f"tmdb.{tmdb_id}",
+                IncludeItemTypes=item_type,
+                Recursive="true",
+                Fields="ProviderIds",
+                Limit=1,
+            )
+            items = data.get("Items", [])
+            return items[0] if items else None
+        except ApiError:
+            return None
+
+    async def create_playlist(self, name: str, item_ids: list[str], user_id: str) -> str | None:
+        """Create a playlist with given items. Returns playlist ID."""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{self._base_url}/Playlists",
+                headers=self._headers(),
+                json={
+                    "Name": name,
+                    "Ids": item_ids,
+                    "UserId": user_id,
+                    "MediaType": "Unknown",
+                },
+            )
+            if resp.status_code not in (200, 201):
+                raise ApiError("jellyfin", "POST /Playlists failed", resp.status_code)
+            data = resp.json()
+            return data.get("Id")
+
+    async def update_playlist_items(self, playlist_id: str, item_ids: list[str]) -> None:
+        """Replace playlist items: remove all, then add new ones."""
+        # Get current items
+        try:
+            data = await self._get(f"/Playlists/{playlist_id}/Items")
+            current_ids = [item["Id"] for item in data.get("Items", [])]
+        except ApiError:
+            current_ids = []
+
+        # Remove all current items
+        if current_ids:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.delete(
+                    f"{self._base_url}/Playlists/{playlist_id}/Items",
+                    headers=self._headers(),
+                    params={"EntryIds": ",".join(current_ids)},
+                )
+
+        # Add new items
+        if item_ids:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(
+                    f"{self._base_url}/Playlists/{playlist_id}/Items",
+                    headers=self._headers(),
+                    params={"Ids": ",".join(item_ids)},
+                )
