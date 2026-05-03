@@ -301,8 +301,37 @@ class SonarrClient:
         data["monitored"] = False
         await self._request("PUT", f"/series/{series_id}", json=data)
 
-    async def delete(self, series_id: int, delete_files: bool = True) -> None:
-        await self._request("DELETE", f"/series/{series_id}", params={"deleteFiles": delete_files})
+    async def unmonitor_season(self, series_id: int, season_number: int) -> None:
+        """Mark a single season as unmonitored on the series."""
+        data = await self._request("GET", f"/series/{series_id}")
+        for season in data.get("seasons", []):
+            if season.get("seasonNumber") == season_number:
+                season["monitored"] = False
+                break
+        await self._request("PUT", f"/series/{series_id}", json=data)
+
+    async def unmonitor_episodes(self, episode_ids: list[int]) -> None:
+        """Bulk unmonitor episodes so Sonarr stops searching for them."""
+        if not episode_ids:
+            return
+        await self._request(
+            "PUT", "/episode/monitor",
+            json={"episodeIds": episode_ids, "monitored": False},
+        )
+
+    async def delete(
+        self,
+        series_id: int,
+        delete_files: bool = True,
+        add_import_list_exclusion: bool = False,
+    ) -> None:
+        await self._request(
+            "DELETE", f"/series/{series_id}",
+            params={
+                "deleteFiles": delete_files,
+                "addImportListExclusion": add_import_list_exclusion,
+            },
+        )
 
     async def get_episodes(self, series_id: int) -> list[dict]:
         """Fetch all episodes for a series. Returns raw episode data."""
@@ -396,8 +425,19 @@ class RadarrClient:
         data["monitored"] = False
         await self._request("PUT", f"/movie/{movie_id}", json=data)
 
-    async def delete(self, movie_id: int, delete_files: bool = True) -> None:
-        await self._request("DELETE", f"/movie/{movie_id}", params={"deleteFiles": delete_files})
+    async def delete(
+        self,
+        movie_id: int,
+        delete_files: bool = True,
+        add_import_list_exclusion: bool = False,
+    ) -> None:
+        await self._request(
+            "DELETE", f"/movie/{movie_id}",
+            params={
+                "deleteFiles": delete_files,
+                "addImportListExclusion": add_import_list_exclusion,
+            },
+        )
 
     async def get_queue(self) -> list[dict]:
         """Fetch the download queue. Returns list of queue records."""

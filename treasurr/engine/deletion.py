@@ -7,9 +7,20 @@ import logging
 from treasurr.config import Config
 from treasurr.db import Database
 from treasurr.models import ScuttleResult
-from treasurr.sync.clients import RadarrClient, SonarrClient
+from treasurr.sync.clients import OverseerrClient, RadarrClient, SonarrClient
 
 logger = logging.getLogger(__name__)
+
+
+async def _decline_overseerr_request(config: Config, request_id: int | None) -> None:
+    """Best-effort: decline the matching Overseerr request so an import-list
+    sync (or a re-request) can't put the content back into Sonarr/Radarr."""
+    if not request_id or not config.overseerr or not config.overseerr.url:
+        return
+    try:
+        await OverseerrClient(config.overseerr).decline_request(request_id)
+    except Exception as e:
+        logger.warning("Failed to decline Overseerr request %d: %s", request_id, e)
 
 
 def _get_plank_days(db: Database, config: Config) -> int:
@@ -133,10 +144,14 @@ async def scuttle_season(
 
     # Find episode files for this season
     file_ids = []
+    season_episode_ids = []
     freed_bytes = 0
     for ep in episodes:
         if ep.get("seasonNumber") != season_number:
             continue
+        ep_id = ep.get("id")
+        if ep_id:
+            season_episode_ids.append(ep_id)
         if ep.get("hasFile", False):
             ep_file = ep.get("episodeFile", {})
             fid = ep_file.get("id") or ep.get("episodeFileId")
@@ -158,6 +173,19 @@ async def scuttle_season(
 
     if deleted_count == 0:
         return ScuttleResult(success=False, message="Failed to delete any episode files")
+
+    # Stop Sonarr re-grabbing the same episodes: unmonitor the episodes AND
+    # mark the season itself unmonitored on the series. Without this, Sonarr
+    # treats the freshly-deleted files as "wanted, missing" and re-downloads
+    # on the next RSS sweep or manual search.
+    try:
+        await sonarr.unmonitor_episodes(season_episode_ids)
+    except Exception as e:
+        logger.warning("Failed to unmonitor episodes for S%02d: %s", season_number, e)
+    try:
+        await sonarr.unmonitor_season(content.sonarr_id, season_number)
+    except Exception as e:
+        logger.warning("Failed to unmonitor season %d on series %d: %s", season_number, content.sonarr_id, e)
 
     # Update season record
     db.update_season_size(content_id, season_number, 0)
@@ -211,7 +239,13 @@ async def _execute_deletion(
                 await sonarr.unmonitor(content.sonarr_id)
             except Exception as e:
                 logger.warning("Failed to unmonitor in Sonarr: %s", e)
-            await sonarr.delete(content.sonarr_id, delete_files=True)
+            # addImportListExclusion stops Overseerr's import-list sync from
+            # silently re-adding the show after we delete it.
+            await sonarr.delete(
+                content.sonarr_id,
+                delete_files=True,
+                add_import_list_exclusion=True,
+            )
 
         elif content.media_type == "movie" and content.radarr_id:
             radarr = RadarrClient(config.radarr)
@@ -219,7 +253,11 @@ async def _execute_deletion(
                 await radarr.unmonitor(content.radarr_id)
             except Exception as e:
                 logger.warning("Failed to unmonitor in Radarr: %s", e)
-            await radarr.delete(content.radarr_id, delete_files=True)
+            await radarr.delete(
+                content.radarr_id,
+                delete_files=True,
+                add_import_list_exclusion=True,
+            )
 
         else:
             logger.warning("No arr ID for content '%s'  - marking deleted without file removal", content.title)
@@ -228,6 +266,10 @@ async def _execute_deletion(
         db.update_content_status(content_id, "active")
         logger.error("Failed to delete content '%s': %s", content.title, e)
         return ScuttleResult(success=False, message=f"Deletion failed: {e}")
+
+    # Belt-and-braces: also decline the Overseerr request so a re-request
+    # path can't bypass the Radarr/Sonarr import-list exclusion.
+    await _decline_overseerr_request(config, content.overseerr_request_id)
 
     # Success  - update records
     db.update_content_status(content_id, "deleted")

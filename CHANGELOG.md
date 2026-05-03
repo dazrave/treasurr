@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.1] - 2026-05-03
+
+### Fixed
+
+- **Scuttled content no longer comes back.** Three layers of leak:
+  - `RadarrClient.delete()` / `SonarrClient.delete()` now pass `addImportListExclusion=true`, so Overseerr's import-list sync can't silently re-add what we just removed.
+  - `scuttle_season()` now unmonitors the deleted episodes and the season itself; previously Sonarr saw them as "wanted, missing" after the next RSS sweep and re-grabbed.
+  - `_execute_deletion()` now best-effort declines the matching Overseerr request (when known), so a re-request path can't bypass the import-list exclusion.
+- 5 new regression tests covering the above (285 total).
+
 ## [0.3.0] - 2026-03-03
 
 ### Added
